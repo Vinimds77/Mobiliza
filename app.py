@@ -172,6 +172,8 @@ def abrir_link(codigo):
     relacionamento.total_cliques += 1
 
     agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    print("HORÁRIO GERADO:", agora)
+    
 
     if relacionamento.primeiro_clique is None:
         relacionamento.primeiro_clique = agora
