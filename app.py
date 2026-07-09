@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect
 import secrets
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from user_agents import parse
 
 from config import Config
 from database import db
@@ -172,19 +173,37 @@ def abrir_link(codigo):
     relacionamento.total_cliques += 1
 
     agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-    print("HORÁRIO GERADO:", agora)
-    
 
     if relacionamento.primeiro_clique is None:
         relacionamento.primeiro_clique = agora
 
     relacionamento.ultimo_clique = agora
 
+    # Detecta dispositivo e navegador
+    user_agent = parse(request.headers.get("User-Agent"))
+
+    dispositivo = "Desktop"
+
+    if user_agent.is_mobile:
+        dispositivo = "Celular"
+    elif user_agent.is_tablet:
+        dispositivo = "Tablet"
+    elif user_agent.is_pc:
+        dispositivo = "Computador"
+
+    navegador = user_agent.browser.family
+    print(
+    f"IP={request.remote_addr} | Dispositivo={dispositivo} | Navegador={navegador}",
+    flush=True
+)
+
     # Registra o clique
     clique = Clique(
         campanha_id=campanha.id,
         contato_id=relacionamento.contato_id,
-        ip=request.remote_addr
+        ip=request.remote_addr,
+        dispositivo=dispositivo,
+        navegador=navegador
     )
 
     db.session.add(clique)
@@ -206,6 +225,23 @@ def detalhes_campanha(id):
     relacionamentos = CampanhaContato.query.filter_by(
         campanha_id=id
     ).all()
+
+    for r in relacionamentos:
+
+        ultimo_clique = Clique.query.filter_by(
+            contato_id=r.contato_id,
+            campanha_id=id
+        ).order_by(
+            Clique.data.desc()
+        ).first()
+
+        r.ultimo_dispositivo = (
+            ultimo_clique.dispositivo if ultimo_clique else "-"
+        )
+
+        r.ultimo_navegador = (
+            ultimo_clique.navegador if ultimo_clique else "-"
+        )
 
     return render_template(
         "campanha_detalhes.html",

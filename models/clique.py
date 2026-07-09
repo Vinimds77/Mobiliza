@@ -28,6 +28,14 @@ class Clique(db.Model):
         db.String(100)
     )
 
+    dispositivo = db.Column(
+        db.String(100)
+    )
+
+    navegador = db.Column(
+        db.String(100)
+    )
+
     data = db.Column(
         db.DateTime,
         default=lambda: datetime.now(ZoneInfo("America/Sao_Paulo"))

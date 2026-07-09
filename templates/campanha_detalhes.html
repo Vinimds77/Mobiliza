@@ -26,222 +26,173 @@
     <div class="row mb-4">
 
         <div class="col-md-3">
-
             <div class="card text-center shadow-sm">
-
                 <div class="card-body">
-
                     <h6>Total de Contatos</h6>
-
                     <h2>{{ relacionamentos|length }}</h2>
-
                 </div>
-
             </div>
-
         </div>
 
         <div class="col-md-3">
-
             <div class="card text-center shadow-sm">
-
                 <div class="card-body">
-
                     <h6>Já Clicaram</h6>
-
                     <h2>
-
                         {{ relacionamentos | selectattr("clicou") | list | length }}
-
                     </h2>
-
                 </div>
-
             </div>
-
         </div>
 
         <div class="col-md-3">
-
             <div class="card text-center shadow-sm">
-
                 <div class="card-body">
-
                     <h6>Não Clicaram</h6>
-
                     <h2>
-
                         {{ relacionamentos|length - (relacionamentos | selectattr("clicou") | list | length) }}
-
                     </h2>
-
                 </div>
-
             </div>
-
         </div>
 
         <div class="col-md-3">
-
             <div class="card text-center shadow-sm">
-
                 <div class="card-body">
-
                     <h6>CTR</h6>
-
                     <h2>
-
                         {% if relacionamentos|length > 0 %}
-
-                        {{ ((relacionamentos | selectattr("clicou") | list | length) / relacionamentos|length * 100)|round(1) }}%
-
+                            {{ ((relacionamentos | selectattr("clicou") | list | length) / relacionamentos|length * 100)|round(1) }}%
                         {% else %}
-
-                        0%
-
+                            0%
                         {% endif %}
-
                     </h2>
-
                 </div>
-
             </div>
+        </div>
+
+    </div>
+
+    <div class="row mb-3">
+
+        <div class="col-md-4">
+
+            <input
+                type="text"
+                id="pesquisa"
+                class="form-control"
+                placeholder="🔍 Pesquisar contato...">
 
         </div>
 
     </div>
-<div class="row mb-3">
 
-    <div class="col-md-4">
-
-        <input
-            type="text"
-            id="pesquisa"
-            class="form-control"
-            placeholder="🔍 Pesquisar contato...">
-
-    </div>
-
-</div>
     <table class="table table-hover table-bordered align-middle">
 
         <thead class="table-dark">
 
-        <tr class="linha-contato">
+            <tr>
 
-            <th>Nome</th>
+                <th>Nome</th>
+                <th>Cargo</th>
+                <th>Telefone</th>
+                <th>Status</th>
+                <th>Cliques</th>
+                <th>Primeiro Clique</th>
+                <th>Último Clique</th>
+                <th>Dispositivo</th>
+                <th>Navegador</th>
+                <th>Link</th>
 
-            <th>Cargo</th>
-
-            <th>Telefone</th>
-
-            <th>Status</th>
-
-            <th>Cliques</th>
-
-            <th>Primeiro Clique</th>
-
-            <th>Último Clique</th>
-
-            <th>Link</th>
-
-        </tr>
+            </tr>
 
         </thead>
 
         <tbody>
 
-        {% for r in relacionamentos %}
+            {% for r in relacionamentos %}
 
-        <tr class="linha-contato"></tr>
+            <tr class="linha-contato">
 
-            <td>{{ r.contato.nome }}</td>
+                <td>{{ r.contato.nome }}</td>
 
-            <td>{{ r.contato.cargo }}</td>
+                <td>{{ r.contato.cargo }}</td>
 
-            <td>{{ r.contato.telefone }}</td>
+                <td>{{ r.contato.telefone }}</td>
 
-            <td>
+                <td>
 
-                {% if r.clicou %}
+                    {% if r.clicou %}
 
-                <span class="badge bg-success">
+                        <span class="badge bg-success">Clicou</span>
 
-                    Clicou
+                    {% else %}
 
-                </span>
+                        <span class="badge bg-danger">Não clicou</span>
 
-                {% else %}
+                    {% endif %}
 
-                <span class="badge bg-danger">
+                </td>
 
-                    Não clicou
+                <td>{{ r.total_cliques }}</td>
 
-                </span>
+                <td>
 
-                {% endif %}
+                    {% if r.primeiro_clique %}
 
-            </td>
+                        {{ r.primeiro_clique.strftime("%d/%m %H:%M") }}
 
-            <td>
+                    {% else %}
 
-                {{ r.total_cliques }}
+                        -
 
-            </td>
+                    {% endif %}
 
-            <td>
+                </td>
 
-                {% if r.primeiro_clique %}
+                <td>
 
-                    {{ r.primeiro_clique.strftime("%d/%m %H:%M") }}
+                    {% if r.ultimo_clique %}
 
-                {% else %}
+                        {{ r.ultimo_clique.strftime("%d/%m %H:%M") }}
 
-                    -
+                    {% else %}
 
-                {% endif %}
+                        -
 
-            </td>
+                    {% endif %}
 
-            <td>
+                </td>
 
-                {% if r.ultimo_clique %}
+                <td>{{ r.ultimo_dispositivo }}</td>
 
-                    {{ r.ultimo_clique.strftime("%d/%m %H:%M") }}
+                <td>{{ r.ultimo_navegador }}</td>
 
-                {% else %}
+                <td>
 
-                    -
+                    <div class="input-group">
 
-                {% endif %}
+                        <input
+                            id="link{{ r.id }}"
+                            class="form-control"
+                            readonly
+                            value="{{ base_url }}/r/{{ r.codigo }}">
 
-            </td>
+                        <button
+                            class="btn btn-primary"
+                            onclick="copiar('link{{ r.id }}')">
 
-            <td>
+                            📋
 
-                <div class="input-group">
+                        </button>
 
-                    <input
-                        id="link{{ r.id }}"
-                        class="form-control"
-                        readonly
-                        value="{{ base_url }}/r/{{ r.codigo }}">
+                    </div>
 
-                    <button
-                        class="btn btn-primary"
-                        onclick="copiar('link{{ r.id }}')">
+                </td>
 
-                        📋
+            </tr>
 
-                    </button>
-
-                </div>
-
-            </td>
-
-        </tr>
-
-        {% endfor %}
+            {% endfor %}
 
         </tbody>
 
@@ -264,6 +215,7 @@ function copiar(id){
     alert("Link copiado!");
 
 }
+
 const pesquisa = document.getElementById("pesquisa");
 
 pesquisa.addEventListener("keyup", function(){
@@ -287,6 +239,7 @@ pesquisa.addEventListener("keyup", function(){
     });
 
 });
+
 </script>
 
 </body>
