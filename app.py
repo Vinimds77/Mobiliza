@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect
 import secrets
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from config import Config
 from database import db
@@ -170,7 +171,7 @@ def abrir_link(codigo):
     relacionamento.clicou = True
     relacionamento.total_cliques += 1
 
-    agora = datetime.now()
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
 
     if relacionamento.primeiro_clique is None:
         relacionamento.primeiro_clique = agora

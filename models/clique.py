@@ -1,5 +1,5 @@
 from database import db
-from datetime import datetime, timedelta
+from datetime import datetime,
 
 
 class Clique(db.Model):
@@ -28,9 +28,8 @@ class Clique(db.Model):
     )
 
     data = db.Column(
-        db.DateTime,
-        default=lambda: datetime.utcnow() - timedelta(hours=3)
-    )
+    db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Sao_Paulo"))
 
     campanha = db.relationship("Campanha")
 
