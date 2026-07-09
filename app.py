@@ -168,19 +168,29 @@ def abrir_link(codigo):
         relacionamento.campanha_id
     )
 
-    # Atualiza o relacionamento
-    relacionamento.clicou = True
-    relacionamento.total_cliques += 1
-
-    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-
-    if relacionamento.primeiro_clique is None:
-        relacionamento.primeiro_clique = agora
-
-    relacionamento.ultimo_clique = agora
-
     # Detecta dispositivo e navegador
-    user_agent = parse(request.headers.get("User-Agent"))
+    user_agent_string = request.headers.get("User-Agent", "")
+
+    user_agent = parse(user_agent_string)
+
+    bots = [
+        "facebookexternalhit",
+        "WhatsApp",
+        "TelegramBot",
+        "Slackbot",
+        "Twitterbot",
+        "LinkedInBot",
+        "Googlebot",
+        "bingbot",
+        "Discordbot"
+    ]
+
+    eh_bot = False
+
+    for bot in bots:
+        if bot.lower() in user_agent_string.lower():
+            eh_bot = True
+            break
 
     dispositivo = "Desktop"
 
@@ -192,23 +202,53 @@ def abrir_link(codigo):
         dispositivo = "Computador"
 
     navegador = user_agent.browser.family
-    print(
-    f"IP={request.remote_addr} | Dispositivo={dispositivo} | Navegador={navegador}",
-    flush=True
+    eh_bot = (
+    navegador == "WhatsApp"
+    or "facebookexternalhit" in user_agent_string.lower()
+    or "telegram" in user_agent_string.lower()
+    or "slackbot" in user_agent_string.lower()
+    or "discordbot" in user_agent_string.lower()
 )
 
-    # Registra o clique
-    clique = Clique(
-        campanha_id=campanha.id,
-        contato_id=relacionamento.contato_id,
-        ip=request.remote_addr,
-        dispositivo=dispositivo,
-        navegador=navegador
+    print(
+        f"""
+=========================
+USER AGENT:
+{user_agent_string}
+
+BOT: {eh_bot}
+IP: {request.remote_addr}
+DISPOSITIVO: {dispositivo}
+NAVEGADOR: {navegador}
+=========================
+""",
+        flush=True
     )
 
-    db.session.add(clique)
-    db.session.add(relacionamento)
+    # Só conta clique se não for bot
+    if not eh_bot:
 
+        relacionamento.clicou = True
+        relacionamento.total_cliques += 1
+
+        agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+
+        if relacionamento.primeiro_clique is None:
+            relacionamento.primeiro_clique = agora
+
+        relacionamento.ultimo_clique = agora
+
+        clique = Clique(
+            campanha_id=campanha.id,
+            contato_id=relacionamento.contato_id,
+            ip=request.remote_addr,
+            dispositivo=dispositivo,
+            navegador=navegador
+        )
+
+        db.session.add(clique)
+
+    db.session.add(relacionamento)
     db.session.commit()
 
     return redirect(campanha.destino)
