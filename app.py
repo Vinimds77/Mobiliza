@@ -1,0 +1,261 @@
+from flask import Flask, render_template, request, redirect
+import secrets
+from datetime import datetime
+
+from config import Config
+from database import db
+
+from models.segmento import Segmento
+from models.campanha import Campanha
+from models.clique import Clique
+from models.contato import Contato
+from models.campanha_contato import CampanhaContato
+
+app = Flask(__name__)
+app.config.from_object(Config)
+
+db.init_app(app)
+
+# ===========================
+# DASHBOARD
+# ===========================
+
+@app.route("/")
+def dashboard():
+
+    total_segmentos = Segmento.query.count()
+    total_contatos = Contato.query.count()
+    total_campanhas = Campanha.query.count()
+    total_cliques = Clique.query.count()
+
+    return render_template(
+        "dashboard.html",
+        segmentos=total_segmentos,
+        contatos=total_contatos,
+        campanhas=total_campanhas,
+        cliques=total_cliques
+    )
+
+
+# ===========================
+# SEGMENTOS
+# ===========================
+
+@app.route("/segmentos", methods=["GET", "POST"])
+def segmentos():
+
+    if request.method == "POST":
+
+        novo = Segmento(
+            nome=request.form["nome"]
+        )
+
+        db.session.add(novo)
+        db.session.commit()
+
+        return redirect("/segmentos")
+
+    lista = Segmento.query.all()
+
+    return render_template(
+        "segmentos.html",
+        segmentos=lista
+    )
+
+
+# ===========================
+# CONTATOS
+# ===========================
+
+@app.route("/contatos", methods=["GET", "POST"])
+def contatos():
+
+    if request.method == "POST":
+
+        contato = Contato(
+            nome=request.form["nome"],
+            telefone=request.form["telefone"],
+            cargo=request.form["cargo"],
+            segmento_id=request.form["segmento"]
+        )
+
+        db.session.add(contato)
+        db.session.commit()
+
+        return redirect("/contatos")
+
+    lista_contatos = Contato.query.all()
+    lista_segmentos = Segmento.query.all()
+
+    return render_template(
+        "contatos.html",
+        contatos=lista_contatos,
+        segmentos=lista_segmentos
+    )
+
+
+# ===========================
+# CAMPANHAS
+# ===========================
+
+@app.route("/campanhas", methods=["GET", "POST"])
+def campanhas():
+
+    if request.method == "POST":
+
+        titulo = request.form["titulo"]
+        destino = request.form["destino"]
+        segmento_id = request.form["segmento"]
+
+        codigo = secrets.token_hex(3)
+
+        campanha = Campanha(
+            titulo=titulo,
+            destino=destino,
+            codigo=codigo
+        )
+
+        db.session.add(campanha)
+        db.session.commit()
+
+        contatos = Contato.query.filter_by(
+            segmento_id=segmento_id
+        ).all()
+
+        for contato in contatos:
+
+            codigo_individual = secrets.token_hex(3)
+
+            relacionamento = CampanhaContato(
+                campanha_id=campanha.id,
+                contato_id=contato.id,
+                codigo=codigo_individual
+            )
+
+            db.session.add(relacionamento)
+
+        db.session.commit()
+
+        return redirect("/campanhas")
+
+    lista = Campanha.query.all()
+    lista_segmentos = Segmento.query.all()
+
+    return render_template(
+        "campanhas.html",
+        campanhas=lista,
+        segmentos=lista_segmentos
+    )
+
+
+# ===========================
+# LINK RASTREÁVEL
+# ===========================
+
+@app.route("/r/<codigo>")
+def abrir_link(codigo):
+
+    relacionamento = CampanhaContato.query.filter_by(
+        codigo=codigo
+    ).first()
+
+    if not relacionamento:
+        return "Link inválido."
+
+    campanha = Campanha.query.get(
+        relacionamento.campanha_id
+    )
+
+    # Atualiza o relacionamento
+    relacionamento.clicou = True
+    relacionamento.total_cliques += 1
+
+    agora = datetime.now()
+
+    if relacionamento.primeiro_clique is None:
+        relacionamento.primeiro_clique = agora
+
+    relacionamento.ultimo_clique = agora
+
+    # Registra o clique
+    clique = Clique(
+        campanha_id=campanha.id,
+        contato_id=relacionamento.contato_id,
+        ip=request.remote_addr
+    )
+
+    db.session.add(clique)
+    db.session.add(relacionamento)
+
+    db.session.commit()
+
+    return redirect(campanha.destino)
+
+# ===========================
+# DETALHES DA CAMPANHA
+# ===========================
+
+@app.route("/campanha/<int:id>")
+def detalhes_campanha(id):
+
+    campanha = Campanha.query.get_or_404(id)
+
+    relacionamentos = CampanhaContato.query.filter_by(
+        campanha_id=id
+    ).all()
+
+    return render_template(
+        "campanha_detalhes.html",
+        campanha=campanha,
+        relacionamentos=relacionamentos,
+        base_url=request.host_url.rstrip("/")
+    )
+
+# ===========================
+# HISTÓRICO DE CLIQUES
+# ===========================
+
+@app.route("/cliques")
+def listar_cliques():
+
+    cliques = Clique.query.order_by(
+        Clique.data.desc()
+    ).all()
+
+    return render_template(
+        "cliques.html",
+        cliques=cliques
+    )
+
+
+# ===========================
+# TESTE
+# ===========================
+
+@app.route("/teste")
+def teste():
+
+    relacionamentos = CampanhaContato.query.all()
+
+    texto = ""
+
+    for r in relacionamentos:
+        texto += f"""
+        Campanha: {r.campanha_id} |
+        Contato: {r.contato_id} |
+        Código: {r.codigo}<br>
+        """
+
+    return texto
+
+
+# ===========================
+# START
+# ===========================
+
+if __name__ == "__main__":
+
+    with app.app_context():
+        db.create_all()
+
+    app.run(debug=True)

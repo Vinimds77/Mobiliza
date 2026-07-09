@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block titulo %}
+
+Dashboard
+
+{% endblock %}
+
+{% block conteudo %}
+
+<h2>📊 Dashboard</h2>
+
+<hr>
+
+<div class="row">
+
+<div class="col-md-3">
+
+<div class="card text-center">
+
+<div class="card-body">
+
+<h5>Segmentos</h5>
+
+<h2>{{ segmentos }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card text-center">
+
+<div class="card-body">
+
+<h5>Contatos</h5>
+
+<h2>{{ contatos }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card text-center">
+
+<div class="card-body">
+
+<h5>Campanhas</h5>
+
+<h2>{{ campanhas }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card text-center">
+
+<div class="card-body">
+
+<h5>Cliques</h5>
+
+<h2>{{ cliques }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}
