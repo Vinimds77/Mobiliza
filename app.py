@@ -171,7 +171,14 @@ def abrir_link(codigo):
     # Detecta dispositivo e navegador
     user_agent_string = request.headers.get("User-Agent", "")
 
-    user_agent = parse(user_agent_string)
+    user_agent_string = request.headers.get("User-Agent", "")
+
+user_agent = parse(user_agent_string)
+
+ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+if "," in ip:
+    ip = ip.split(",")[0].strip()
 
     bots = [
         "facebookexternalhit",
@@ -217,7 +224,7 @@ USER AGENT:
 {user_agent_string}
 
 BOT: {eh_bot}
-IP: {request.remote_addr}
+IP: {ip}
 DISPOSITIVO: {dispositivo}
 NAVEGADOR: {navegador}
 =========================
@@ -239,12 +246,12 @@ NAVEGADOR: {navegador}
         relacionamento.ultimo_clique = agora
 
         clique = Clique(
-            campanha_id=campanha.id,
-            contato_id=relacionamento.contato_id,
-            ip=request.remote_addr,
-            dispositivo=dispositivo,
-            navegador=navegador
-        )
+    campanha_id=campanha.id,
+    contato_id=relacionamento.contato_id,
+    ip=ip,
+    dispositivo=dispositivo,
+    navegador=navegador
+)
 
         db.session.add(clique)
 
