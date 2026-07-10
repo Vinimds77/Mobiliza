@@ -102,6 +102,7 @@
                 <th>Último Clique</th>
                 <th>Dispositivo</th>
                 <th>Navegador</th>
+                <th>Compartilhamento</th>
                 <th>Link</th>
 
             </tr>
@@ -166,11 +167,17 @@
 
                 <td>{{ r.ultimo_dispositivo }}</td>
 
-                <td>{{ r.ultimo_navegador }}</td>
+<td>{{ r.ultimo_navegador }}</td>
 
-                <td>
+<td>
 
-                    <div class="input-group">
+    {{ r.compartilhamento }}
+
+</td>
+
+<td>
+
+    <div class="input-group">
 
                         <input
                             id="link{{ r.id }}"

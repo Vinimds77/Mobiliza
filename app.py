@@ -283,6 +283,54 @@ def detalhes_campanha(id):
             ultimo_clique.navegador if ultimo_clique else "-"
         )
 
+        # Todos os cliques do contato
+        cliques = Clique.query.filter_by(
+            contato_id=r.contato_id,
+            campanha_id=id
+        ).all()
+
+        ips = set()
+        dispositivos = set()
+        navegadores = set()
+
+        for clique in cliques:
+
+            if clique.ip:
+                ips.add(clique.ip)
+
+            if clique.dispositivo:
+                dispositivos.add(clique.dispositivo)
+
+            if clique.navegador:
+                navegadores.add(clique.navegador)
+
+        r.total_ips = len(ips)
+        r.total_dispositivos = len(dispositivos)
+        r.total_navegadores = len(navegadores)
+
+        indice = 0
+
+        if len(ips) > 1:
+            indice += 1
+
+        if len(dispositivos) > 1:
+            indice += 1
+
+        if len(navegadores) > 1:
+            indice += 1
+
+        if indice == 0:
+            r.compartilhamento = "🟢 Normal"
+
+        elif indice == 1:
+            r.compartilhamento = "🟡 Baixo"
+
+        elif indice == 2:
+            r.compartilhamento = "🟠 Médio"
+
+        else:
+            r.compartilhamento = "🔴 Alto"
+
     return render_template(
         "campanha_detalhes.html",
         campanha=campanha,
