@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "../__pycache__"
+		},
+		{
+			"path": "../instance"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../routes"
+		},
+		{
+			"path": "../templates"
+		},
+		{
+			"path": "../venv"
+		}
+	]
+}

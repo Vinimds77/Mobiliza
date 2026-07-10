@@ -35,6 +35,17 @@ class Clique(db.Model):
     navegador = db.Column(
         db.String(100)
     )
+    cidade = db.Column(
+        db.String(100)
+    )
+
+    estado = db.Column(
+        db.String(100)
+    )
+
+    pais = db.Column(
+        db.String(100)
+    )
 
     data = db.Column(
         db.DateTime,

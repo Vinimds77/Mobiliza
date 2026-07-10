@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, redirect
 import secrets
+import requests
+import tzdata
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from user_agents import parse
@@ -178,6 +180,26 @@ def abrir_link(codigo):
     if "," in ip:
         ip = ip.split(",")[0].strip()
 
+    cidade = "-"
+    estado = "-"
+    pais = "-"
+
+    try:
+        resposta = requests.get(
+            f"http://ip-api.com/json/{ip}",
+            timeout=3
+        )
+
+        dados = resposta.json()
+
+        if dados.get("status") == "success":
+            cidade = dados.get("city", "-")
+            estado = dados.get("regionName", "-")
+            pais = dados.get("country", "-")
+
+    except Exception:
+        pass
+
     bots = [
         "facebookexternalhit",
         "WhatsApp",
@@ -215,7 +237,7 @@ def abrir_link(codigo):
         or "slackbot" in user_agent_string.lower()
         or "discordbot" in user_agent_string.lower()
     )
-
+        
     print(
         f"""
 =========================
@@ -229,8 +251,7 @@ NAVEGADOR: {navegador}
 =========================
 """,
         flush=True
-    )
-
+        ) 
     if not eh_bot:
 
         relacionamento.clicou = True
@@ -248,9 +269,11 @@ NAVEGADOR: {navegador}
             contato_id=relacionamento.contato_id,
             ip=ip,
             dispositivo=dispositivo,
-            navegador=navegador
+            navegador=navegador,
+            cidade=cidade,
+            estado=estado,
+            pais=pais
         )
-
         db.session.add(clique)
 
     db.session.add(relacionamento)
