@@ -375,7 +375,26 @@ def teste():
 
     return texto
 
+@app.route("/historico/<int:campanha_id>/<int:contato_id>")
+def historico(campanha_id, contato_id):
 
+    campanha = Campanha.query.get_or_404(campanha_id)
+
+    contato = Contato.query.get_or_404(contato_id)
+
+    cliques = Clique.query.filter_by(
+        campanha_id=campanha_id,
+        contato_id=contato_id
+    ).order_by(
+        Clique.data.desc()
+    ).all()
+
+    return render_template(
+        "historico.html",
+        campanha=campanha,
+        contato=contato,
+        cliques=cliques
+    )
 # ===========================
 # START
 # ===========================

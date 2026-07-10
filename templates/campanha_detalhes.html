@@ -103,6 +103,7 @@
                 <th>Dispositivo</th>
                 <th>Navegador</th>
                 <th>Compartilhamento</th>
+                <th>Histórico</th>
                 <th>Link</th>
 
             </tr>
@@ -172,6 +173,18 @@
 <td>
 
     {{ r.compartilhamento }}
+
+</td>
+
+<td>
+
+    <a
+        href="/historico/{{ campanha.id }}/{{ r.contato.id }}"
+        class="btn btn-outline-primary btn-sm">
+
+        👁 Ver
+
+    </a>
 
 </td>
 
