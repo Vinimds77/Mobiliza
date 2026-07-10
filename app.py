@@ -170,15 +170,13 @@ def abrir_link(codigo):
 
     # Detecta dispositivo e navegador
     user_agent_string = request.headers.get("User-Agent", "")
+    user_agent = parse(user_agent_string)
 
-    user_agent_string = request.headers.get("User-Agent", "")
+    # IP real do visitante
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-user_agent = parse(user_agent_string)
-
-ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-
-if "," in ip:
-    ip = ip.split(",")[0].strip()
+    if "," in ip:
+        ip = ip.split(",")[0].strip()
 
     bots = [
         "facebookexternalhit",
@@ -209,13 +207,14 @@ if "," in ip:
         dispositivo = "Computador"
 
     navegador = user_agent.browser.family
+
     eh_bot = (
-    navegador == "WhatsApp"
-    or "facebookexternalhit" in user_agent_string.lower()
-    or "telegram" in user_agent_string.lower()
-    or "slackbot" in user_agent_string.lower()
-    or "discordbot" in user_agent_string.lower()
-)
+        navegador == "WhatsApp"
+        or "facebookexternalhit" in user_agent_string.lower()
+        or "telegram" in user_agent_string.lower()
+        or "slackbot" in user_agent_string.lower()
+        or "discordbot" in user_agent_string.lower()
+    )
 
     print(
         f"""
@@ -232,7 +231,6 @@ NAVEGADOR: {navegador}
         flush=True
     )
 
-    # Só conta clique se não for bot
     if not eh_bot:
 
         relacionamento.clicou = True
@@ -246,12 +244,12 @@ NAVEGADOR: {navegador}
         relacionamento.ultimo_clique = agora
 
         clique = Clique(
-    campanha_id=campanha.id,
-    contato_id=relacionamento.contato_id,
-    ip=ip,
-    dispositivo=dispositivo,
-    navegador=navegador
-)
+            campanha_id=campanha.id,
+            contato_id=relacionamento.contato_id,
+            ip=ip,
+            dispositivo=dispositivo,
+            navegador=navegador
+        )
 
         db.session.add(clique)
 
