@@ -47,6 +47,19 @@ class Clique(db.Model):
         db.String(100)
     )
 
+    # NOVOS CAMPOS
+    cidade = db.Column(
+        db.String(100)
+    )
+
+    estado = db.Column(
+        db.String(100)
+    )
+
+    pais = db.Column(
+        db.String(100)
+    )
+
     data = db.Column(
         db.DateTime,
         default=lambda: datetime.now(ZoneInfo("America/Sao_Paulo"))
