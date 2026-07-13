@@ -180,7 +180,7 @@ def abrir_link(codigo):
     if "," in ip:
         ip = ip.split(",")[0].strip()
 
-# Geolocalização
+    # Geolocalização
     cidade = "-"
     estado = "-"
     pais = "-"
@@ -201,7 +201,19 @@ def abrir_link(codigo):
     except Exception:
         pass
 
-# Bots
+    # Dispositivo
+    dispositivo = "Desktop"
+
+    if user_agent.is_mobile:
+        dispositivo = "Celular"
+    elif user_agent.is_tablet:
+        dispositivo = "Tablet"
+    elif user_agent.is_pc:
+        dispositivo = "Computador"
+
+    navegador = user_agent.browser.family
+
+    # Bots (previews de WhatsApp, Facebook, Telegram, crawlers, etc.)
     bots = [
         "facebookexternalhit",
         "WhatsApp",
@@ -221,27 +233,9 @@ def abrir_link(codigo):
             eh_bot = True
             break
 
-    # Dispositivo
-    dispositivo = "Desktop"
+    if navegador == "WhatsApp":
+        eh_bot = True
 
-    if user_agent.is_mobile:
-        dispositivo = "Celular"
-    elif user_agent.is_tablet:
-        dispositivo = "Tablet"
-    elif user_agent.is_pc:
-        dispositivo = "Computador"
-
-    navegador = user_agent.browser.family
-
-    eh_bot = (
-        navegador == "WhatsApp"
-        or "facebookexternalhit" in user_agent_string.lower()
-        or "telegram" in user_agent_string.lower()
-        or "slackbot" in user_agent_string.lower()
-        or "discordbot" in user_agent_string.lower()
-    )
-
-        
     print(
         f"""
 USER AGENT:
@@ -255,10 +249,8 @@ CIDADE: {cidade}
 DISPOSITIVO: {dispositivo}
 NAVEGADOR: {navegador}
 =========================
-=======
 """, flush=True)
 
->>>>>>> 702a1e2 (Configura PostgreSQL Neon)
     if not eh_bot:
 
         relacionamento.clicou = True
