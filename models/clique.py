@@ -1,6 +1,5 @@
 from database import db
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 
 class Clique(db.Model):
@@ -62,7 +61,7 @@ class Clique(db.Model):
 
     data = db.Column(
         db.DateTime,
-        default=lambda: datetime.now(ZoneInfo("America/Sao_Paulo"))
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     campanha = db.relationship("Campanha")

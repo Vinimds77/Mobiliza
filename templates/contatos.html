@@ -8,6 +8,15 @@
 
     <hr>
 
+    {% if erro == "vinculado" %}
+
+        <div class="alert alert-warning">
+            Não é possível excluir este contato porque ele já participou de alguma campanha.
+            O histórico de cliques será preservado.
+        </div>
+
+    {% endif %}
+
     <div class="card mb-4">
 
         <div class="card-header">
@@ -94,6 +103,8 @@
 
                 <th>Segmento</th>
 
+                <th class="text-end">Ações</th>
+
             </tr>
 
         </thead>
@@ -111,6 +122,19 @@
                 <td>{{ contato.cargo }}</td>
 
                 <td>{{ contato.segmento.nome }}</td>
+
+                <td class="text-end">
+
+                    <a
+                        href="/contatos/excluir/{{ contato.id }}"
+                        class="btn btn-danger btn-sm"
+                        onclick="return confirm('Tem certeza que deseja excluir o contato {{ contato.nome }}?');">
+
+                        Excluir
+
+                    </a>
+
+                </td>
 
             </tr>
 

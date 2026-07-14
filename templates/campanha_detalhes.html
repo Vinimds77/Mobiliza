@@ -1,19 +1,8 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+{% extends "base.html" %}
 
-<head>
+{% block titulo %}Detalhes da Campanha{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <title>Detalhes da Campanha</title>
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-</head>
-
-<body class="bg-light">
-
-<div class="container mt-5">
+{% block conteudo %}
 
     <a href="/campanhas" class="btn btn-secondary mb-4">
         ← Voltar
@@ -142,7 +131,7 @@
 
                     {% if r.primeiro_clique %}
 
-                        {{ r.primeiro_clique.strftime("%d/%m %H:%M") }}
+                        {{ r.primeiro_clique | brasilia("%d/%m %H:%M") }}
 
                     {% else %}
 
@@ -156,7 +145,7 @@
 
                     {% if r.ultimo_clique %}
 
-                        {{ r.ultimo_clique.strftime("%d/%m %H:%M") }}
+                        {{ r.ultimo_clique | brasilia("%d/%m %H:%M") }}
 
                     {% else %}
 
@@ -218,50 +207,46 @@
 
     </table>
 
-</div>
+    <script>
 
-<script>
+    function copiar(id){
 
-function copiar(id){
+        let texto = document.getElementById(id);
 
-    let texto = document.getElementById(id);
+        texto.select();
 
-    texto.select();
+        texto.setSelectionRange(0,99999);
 
-    texto.setSelectionRange(0,99999);
+        navigator.clipboard.writeText(texto.value);
 
-    navigator.clipboard.writeText(texto.value);
+        alert("Link copiado!");
 
-    alert("Link copiado!");
+    }
 
-}
+    const pesquisa = document.getElementById("pesquisa");
 
-const pesquisa = document.getElementById("pesquisa");
+    pesquisa.addEventListener("keyup", function(){
 
-pesquisa.addEventListener("keyup", function(){
+        let texto = pesquisa.value.toLowerCase();
 
-    let texto = pesquisa.value.toLowerCase();
+        let linhas = document.querySelectorAll(".linha-contato");
 
-    let linhas = document.querySelectorAll(".linha-contato");
+        linhas.forEach(function(linha){
 
-    linhas.forEach(function(linha){
+            if(linha.innerText.toLowerCase().includes(texto)){
 
-        if(linha.innerText.toLowerCase().includes(texto)){
+                linha.style.display = "";
 
-            linha.style.display = "";
+            }else{
 
-        }else{
+                linha.style.display = "none";
 
-            linha.style.display = "none";
+            }
 
-        }
+        });
 
     });
 
-});
+    </script>
 
-</script>
-
-</body>
-
-</html>
+{% endblock %}

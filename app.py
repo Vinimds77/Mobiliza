@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect
 import secrets
 import requests
 import tzdata
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from user_agents import parse
 
@@ -22,6 +22,23 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+
+# ===========================
+# FILTROS DE TEMPLATE
+# ===========================
+
+@app.template_filter("brasilia")
+def formatar_brasilia(valor, formato="%d/%m/%Y %H:%M:%S"):
+
+    if valor is None:
+        return "-"
+
+    horario_utc = valor.replace(tzinfo=timezone.utc)
+    horario_brasilia = horario_utc.astimezone(ZoneInfo("America/Sao_Paulo"))
+
+    return horario_brasilia.strftime(formato)
+
 
 # ===========================
 # DASHBOARD
@@ -115,11 +132,32 @@ def contatos():
     lista_contatos = Contato.query.all()
     lista_segmentos = Segmento.query.all()
 
+    erro = request.args.get("erro")
+
     return render_template(
         "contatos.html",
         contatos=lista_contatos,
-        segmentos=lista_segmentos
+        segmentos=lista_segmentos,
+        erro=erro
     )
+
+
+@app.route("/contatos/excluir/<int:id>")
+def excluir_contato(id):
+
+    contato = Contato.query.get_or_404(id)
+
+    tem_campanhas = CampanhaContato.query.filter_by(
+        contato_id=id
+    ).count()
+
+    if tem_campanhas > 0:
+        return redirect("/contatos?erro=vinculado")
+
+    db.session.delete(contato)
+    db.session.commit()
+
+    return redirect("/contatos")
 
 
 # ===========================
@@ -174,6 +212,20 @@ def campanhas():
         campanhas=lista,
         segmentos=lista_segmentos
     )
+
+
+@app.route("/campanhas/excluir/<int:id>")
+def excluir_campanha(id):
+
+    campanha = Campanha.query.get_or_404(id)
+
+    Clique.query.filter_by(campanha_id=id).delete()
+    CampanhaContato.query.filter_by(campanha_id=id).delete()
+
+    db.session.delete(campanha)
+    db.session.commit()
+
+    return redirect("/campanhas")
 
 
 # ===========================
@@ -280,7 +332,7 @@ NAVEGADOR: {navegador}
         relacionamento.clicou = True
         relacionamento.total_cliques += 1
 
-        agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
+        agora = datetime.now(timezone.utc).replace(tzinfo=None)
 
         if relacionamento.primeiro_clique is None:
             relacionamento.primeiro_clique = agora
