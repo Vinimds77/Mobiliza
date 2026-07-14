@@ -64,10 +64,31 @@ def segmentos():
 
     lista = Segmento.query.all()
 
+    erro = request.args.get("erro")
+
     return render_template(
         "segmentos.html",
-        segmentos=lista
+        segmentos=lista,
+        erro=erro
     )
+
+
+@app.route("/segmentos/excluir/<int:id>")
+def excluir_segmento(id):
+
+    segmento = Segmento.query.get_or_404(id)
+
+    tem_contatos = Contato.query.filter_by(
+        segmento_id=id
+    ).count()
+
+    if tem_contatos > 0:
+        return redirect("/segmentos?erro=vinculado")
+
+    db.session.delete(segmento)
+    db.session.commit()
+
+    return redirect("/segmentos")
 
 
 # ===========================

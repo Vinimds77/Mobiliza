@@ -8,6 +8,15 @@
 
     <hr>
 
+    {% if erro == "vinculado" %}
+
+        <div class="alert alert-warning">
+            Não é possível excluir este segmento porque existem contatos vinculados a ele.
+            Mova ou exclua esses contatos primeiro.
+        </div>
+
+    {% endif %}
+
     <div class="card mb-4">
 
         <div class="card-header">
@@ -50,6 +59,8 @@
 
                 <th>Nome</th>
 
+                <th class="text-end">Ações</th>
+
             </tr>
 
         </thead>
@@ -63,6 +74,19 @@
                 <td>{{ segmento.id }}</td>
 
                 <td>{{ segmento.nome }}</td>
+
+                <td class="text-end">
+
+                    <a
+                        href="/segmentos/excluir/{{ segmento.id }}"
+                        class="btn btn-danger btn-sm"
+                        onclick="return confirm('Tem certeza que deseja excluir o segmento {{ segmento.nome }}?');">
+
+                        Excluir
+
+                    </a>
+
+                </td>
 
             </tr>
 
