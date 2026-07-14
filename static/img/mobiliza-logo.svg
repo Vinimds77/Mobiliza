@@ -1,0 +1,12 @@
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+  <rect x="10" y="10" width="100" height="100" rx="20" fill="#5B3DF5"/>
+  <g transform="translate(60,60)">
+    <circle cx="0" cy="0" r="8" fill="#FFFFFF"/>
+    <path d="M 14 0 A 14 14 0 0 1 9.9 9.9" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 24 0 A 24 24 0 0 1 17 17" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <path d="M -14 0 A 14 14 0 0 0 -9.9 9.9" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M -24 0 A 24 24 0 0 0 -17 17" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  </g>
+  <text x="130" y="55" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#1A1A2E">Mobiliza</text>
+  <text x="130" y="80" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#6B6B80">mobilização digital</text>
+</svg>
