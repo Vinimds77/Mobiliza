@@ -11,4 +11,4 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    SECRET_KEY = "mobiliza2026"
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-apenas-local-nao-usar-em-producao")

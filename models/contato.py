@@ -1,4 +1,5 @@
 from database import db
+from models.cliente import Cliente
 
 
 class Contato(db.Model):
@@ -18,3 +19,12 @@ class Contato(db.Model):
         db.ForeignKey("segmentos.id"),
         nullable=True
     )
+
+    cliente_id = db.Column(
+        db.Integer,
+        db.ForeignKey("clientes.id"),
+        nullable=False,
+        default=Cliente.padrao_id
+    )
+
+    cliente = db.relationship("Cliente")

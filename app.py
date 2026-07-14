@@ -2,9 +2,17 @@ from flask import Flask, render_template, request, redirect
 import secrets
 import requests
 import tzdata
+import click
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from user_agents import parse
+from flask_login import (
+    LoginManager,
+    login_user,
+    logout_user,
+    login_required
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from config import Config
 from database import db
@@ -14,6 +22,7 @@ from models.campanha import Campanha
 from models.clique import Clique
 from models.contato import Contato
 from models.campanha_contato import CampanhaContato
+from models.usuario import Usuario
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -22,6 +31,54 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+login_manager = LoginManager()
+login_manager.login_view = "login"
+login_manager.init_app(app)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Usuario.query.get(int(user_id))
+
+
+# ===========================
+# LOGIN
+# ===========================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        senha = request.form["senha"]
+
+        usuario = Usuario.query.filter_by(username=username).first()
+
+        if usuario and check_password_hash(usuario.senha_hash, senha):
+
+            login_user(usuario)
+
+            next_url = request.args.get("next")
+
+            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+
+            return redirect("/")
+
+        return render_template(
+            "login.html",
+            erro="Usuário ou senha inválidos."
+        )
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    logout_user()
+    return redirect("/login")
 
 
 # ===========================
@@ -45,6 +102,7 @@ def formatar_brasilia(valor, formato="%d/%m/%Y %H:%M:%S"):
 # ===========================
 
 @app.route("/")
+@login_required
 def dashboard():
 
     total_segmentos = Segmento.query.count()
@@ -66,6 +124,7 @@ def dashboard():
 # ===========================
 
 @app.route("/segmentos", methods=["GET", "POST"])
+@login_required
 def segmentos():
 
     if request.method == "POST":
@@ -91,6 +150,7 @@ def segmentos():
 
 
 @app.route("/segmentos/excluir/<int:id>")
+@login_required
 def excluir_segmento(id):
 
     segmento = Segmento.query.get_or_404(id)
@@ -113,6 +173,7 @@ def excluir_segmento(id):
 # ===========================
 
 @app.route("/contatos", methods=["GET", "POST"])
+@login_required
 def contatos():
 
     if request.method == "POST":
@@ -143,6 +204,7 @@ def contatos():
 
 
 @app.route("/contatos/excluir/<int:id>")
+@login_required
 def excluir_contato(id):
 
     contato = Contato.query.get_or_404(id)
@@ -165,6 +227,7 @@ def excluir_contato(id):
 # ===========================
 
 @app.route("/campanhas", methods=["GET", "POST"])
+@login_required
 def campanhas():
 
     if request.method == "POST":
@@ -215,6 +278,7 @@ def campanhas():
 
 
 @app.route("/campanhas/excluir/<int:id>")
+@login_required
 def excluir_campanha(id):
 
     campanha = Campanha.query.get_or_404(id)
@@ -361,6 +425,7 @@ NAVEGADOR: {navegador}
 # ===========================
 
 @app.route("/campanha/<int:id>")
+@login_required
 def detalhes_campanha(id):
 
     campanha = Campanha.query.get_or_404(id)
@@ -446,6 +511,7 @@ def detalhes_campanha(id):
 # ===========================
 
 @app.route("/cliques")
+@login_required
 def listar_cliques():
 
     cliques = Clique.query.order_by(
@@ -463,6 +529,7 @@ def listar_cliques():
 # ===========================
 
 @app.route("/teste")
+@login_required
 def teste():
 
     relacionamentos = CampanhaContato.query.all()
@@ -479,6 +546,7 @@ def teste():
     return texto
 
 @app.route("/historico/<int:campanha_id>/<int:contato_id>")
+@login_required
 def historico(campanha_id, contato_id):
 
     campanha = Campanha.query.get_or_404(campanha_id)
@@ -498,6 +566,31 @@ def historico(campanha_id, contato_id):
         contato=contato,
         cliques=cliques
     )
+# ===========================
+# CLI
+# ===========================
+
+@app.cli.command("criar-usuario")
+@click.argument("username")
+def criar_usuario(username):
+
+    if Usuario.query.filter_by(username=username).first():
+        click.echo("Usuário já existe.")
+        return
+
+    senha = click.prompt("Senha", hide_input=True, confirmation_prompt=True)
+
+    usuario = Usuario(
+        username=username,
+        senha_hash=generate_password_hash(senha)
+    )
+
+    db.session.add(usuario)
+    db.session.commit()
+
+    click.echo(f"Usuário '{username}' criado.")
+
+
 # ===========================
 # START
 # ===========================

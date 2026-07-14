@@ -1,4 +1,5 @@
 from database import db
+from models.cliente import Cliente
 
 
 class Campanha(db.Model):
@@ -16,3 +17,12 @@ class Campanha(db.Model):
         unique=True,
         nullable=False
     )
+
+    cliente_id = db.Column(
+        db.Integer,
+        db.ForeignKey("clientes.id"),
+        nullable=False,
+        default=Cliente.padrao_id
+    )
+
+    cliente = db.relationship("Cliente")
