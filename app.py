@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect
+import os
 import secrets
 import requests
 import tzdata
@@ -31,6 +32,21 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+    if Usuario.query.count() == 0:
+
+        admin_username = os.getenv("ADMIN_USERNAME")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+
+        if admin_username and admin_password:
+
+            usuario_inicial = Usuario(
+                username=admin_username,
+                senha_hash=generate_password_hash(admin_password)
+            )
+
+            db.session.add(usuario_inicial)
+            db.session.commit()
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
