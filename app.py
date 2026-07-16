@@ -523,6 +523,80 @@ def detalhes_campanha(id):
     )
 
 # ===========================
+# RELATÓRIO DA CAMPANHA
+# ===========================
+
+@app.route("/campanhas/<int:id>/relatorio")
+@login_required
+def relatorio_campanha(id):
+
+    campanha = Campanha.query.get_or_404(id)
+
+    relacionamentos = CampanhaContato.query.filter_by(
+        campanha_id=id
+    ).all()
+
+    total_contatos = len(relacionamentos)
+    cliques_diretos = 0
+
+    alcance_ips = 0
+    alcance_dispositivos = 0
+
+    detalhado = []
+
+    for r in relacionamentos:
+
+        cliques = Clique.query.filter_by(
+            campanha_id=id,
+            contato_id=r.contato_id
+        ).all()
+
+        ips = {c.ip for c in cliques if c.ip}
+        dispositivos = {c.dispositivo for c in cliques if c.dispositivo}
+
+        if r.clicou:
+            cliques_diretos += 1
+
+        alcance_ips += len(ips)
+        alcance_dispositivos += len(dispositivos)
+
+        detalhado.append({
+            "contato_id": r.contato_id,
+            "nome": r.contato.nome,
+            "cliques_totais": r.total_cliques,
+            "ips_distintos": len(ips),
+            "dispositivos_distintos": len(dispositivos),
+            "primeiro_clique": r.primeiro_clique,
+            "ultimo_clique": r.ultimo_clique
+        })
+
+    ranking_compartilhamento = sorted(
+        detalhado,
+        key=lambda d: (d["ips_distintos"], d["dispositivos_distintos"]),
+        reverse=True
+    )
+
+    ctr = round(cliques_diretos / total_contatos * 100, 1) if total_contatos > 0 else 0
+
+    resumo = {
+        "total_contatos": total_contatos,
+        "cliques_diretos": cliques_diretos,
+        "ctr": ctr,
+        "alcance_estimado_ips": alcance_ips,
+        "alcance_estimado_dispositivos": alcance_dispositivos
+    }
+
+    return render_template(
+        "relatorio.html",
+        campanha=campanha,
+        resumo=resumo,
+        ranking_compartilhamento=ranking_compartilhamento,
+        detalhado=sorted(detalhado, key=lambda d: d["nome"]),
+        gerado_em=datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+
+# ===========================
 # HISTÓRICO DE CLIQUES
 # ===========================
 
