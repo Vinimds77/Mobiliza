@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block titulo %}Mobiliza - Usuários{% endblock %}
+
+{% block conteudo %}
+
+    <h1>👤 Usuários</h1>
+
+    <hr>
+
+    {% if erro == "duplicado" %}
+
+        <div class="alert alert-warning">
+            Já existe um usuário com esse username.
+        </div>
+
+    {% endif %}
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+            Novo Usuário
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+
+                <div class="mb-3">
+
+                    <label>Username</label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="username"
+                        required>
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label>Senha</label>
+
+                    <input
+                        type="password"
+                        class="form-control"
+                        name="senha"
+                        required>
+
+                </div>
+
+                <button class="btn btn-success">
+                    Salvar
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <table class="table table-striped">
+
+        <thead class="table-dark">
+
+            <tr>
+
+                <th>Username</th>
+
+                <th>Criado em</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for usuario in usuarios %}
+
+            <tr>
+
+                <td>{{ usuario.username }}</td>
+
+                <td>{{ usuario.criado_em | brasilia }}</td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+{% endblock %}

@@ -14,6 +14,7 @@ from flask_login import (
     login_required
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import inspect, text
 
 from config import Config
 from database import db
@@ -32,6 +33,12 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
+
+    colunas_usuarios = [c["name"] for c in inspect(db.engine).get_columns("usuarios")]
+
+    if "criado_em" not in colunas_usuarios:
+        db.session.execute(text("ALTER TABLE usuarios ADD COLUMN criado_em TIMESTAMP"))
+        db.session.commit()
 
     if Usuario.query.count() == 0:
 
@@ -95,6 +102,37 @@ def login():
 def logout():
     logout_user()
     return redirect("/login")
+
+
+# ===========================
+# USUÁRIOS
+# ===========================
+
+@app.route("/usuarios", methods=["GET", "POST"])
+@login_required
+def usuarios():
+
+    erro = None
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        senha = request.form["senha"]
+
+        if Usuario.query.filter_by(username=username).first():
+            erro = "duplicado"
+        else:
+            novo = Usuario(
+                username=username,
+                senha_hash=generate_password_hash(senha)
+            )
+            db.session.add(novo)
+            db.session.commit()
+            return redirect("/usuarios")
+
+    lista = Usuario.query.order_by(Usuario.username).all()
+
+    return render_template("usuarios.html", usuarios=lista, erro=erro)
 
 
 # ===========================
