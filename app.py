@@ -14,7 +14,7 @@ from flask_login import (
     login_required
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, func
 
 from config import Config
 from database import db
@@ -324,10 +324,18 @@ def campanhas():
     lista = Campanha.query.all()
     lista_segmentos = Segmento.query.all()
 
+    contagem_contatos = dict(
+        db.session.query(
+            CampanhaContato.campanha_id,
+            func.count(CampanhaContato.id)
+        ).group_by(CampanhaContato.campanha_id).all()
+    )
+
     return render_template(
         "campanhas.html",
         campanhas=lista,
-        segmentos=lista_segmentos
+        segmentos=lista_segmentos,
+        contagem_contatos=contagem_contatos
     )
 
 
