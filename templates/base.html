@@ -82,6 +82,22 @@
 
             </div>
 
+            {% if cliente_atual %}
+
+            <div class="navbar-nav">
+
+                <span class="nav-link text-white-50">
+                    Cliente: {{ cliente_atual.nome }}
+                </span>
+
+                <a class="nav-link" href="/clientes">
+                    Trocar
+                </a>
+
+            </div>
+
+            {% endif %}
+
             <div class="navbar-nav">
 
                 <span class="nav-link text-white-50">

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block titulo %}Mobiliza - Clientes{% endblock %}
+
+{% block conteudo %}
+
+    <h1>🏢 Clientes</h1>
+
+    <hr>
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+            Novo Cliente
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+
+                <div class="mb-3">
+
+                    <label>Nome do cliente</label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="nome"
+                        required>
+
+                </div>
+
+                <button class="btn btn-success">
+                    Salvar
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <table class="table table-striped">
+
+        <thead class="table-dark">
+
+            <tr>
+
+                <th>ID</th>
+
+                <th>Nome</th>
+
+                <th>Criado em</th>
+
+                <th class="text-end">Ações</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for cliente in clientes %}
+
+            <tr>
+
+                <td>{{ cliente.id }}</td>
+
+                <td>{{ cliente.nome }}</td>
+
+                <td>{{ cliente.criado_em | brasilia }}</td>
+
+                <td class="text-end">
+
+                    <a
+                        href="/clientes/selecionar/{{ cliente.id }}"
+                        class="btn btn-primary btn-sm">
+
+                        Selecionar
+
+                    </a>
+
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+{% endblock %}

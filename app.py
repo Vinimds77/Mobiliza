@@ -1,4 +1,12 @@
-from flask import Flask, render_template, request, redirect
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session,
+    url_for,
+    has_request_context
+)
 import os
 import secrets
 import requests
@@ -11,10 +19,12 @@ from flask_login import (
     LoginManager,
     login_user,
     logout_user,
-    login_required
+    login_required,
+    current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text, func
+from sqlalchemy import inspect, text, func, event
+from sqlalchemy.orm import with_loader_criteria
 
 from config import Config
 from database import db
@@ -25,6 +35,7 @@ from models.clique import Clique
 from models.contato import Contato
 from models.campanha_contato import CampanhaContato
 from models.usuario import Usuario
+from models.cliente import Cliente
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -63,6 +74,57 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
+
+
+# ===========================
+# FILTRO AUTOMÁTICO POR CLIENTE
+# ===========================
+
+MODELOS_COM_CLIENTE = (Segmento, Contato, Campanha)
+
+
+@event.listens_for(db.session, "do_orm_execute")
+def aplicar_filtro_cliente(execute_state):
+
+    if not execute_state.is_select or not has_request_context():
+        return
+
+    if request.endpoint == "abrir_link":
+        return
+
+    cliente_id = session.get("cliente_id")
+
+    if cliente_id is None:
+        return
+
+    for modelo in MODELOS_COM_CLIENTE:
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(modelo, lambda cls: cls.cliente_id == cliente_id)
+        )
+
+
+@app.before_request
+def exigir_cliente_selecionado():
+
+    if not current_user.is_authenticated:
+        return
+
+    endpoints_sem_cliente = {
+        "login", "logout", "static", "abrir_link",
+        "clientes", "selecionar_cliente", "usuarios"
+    }
+
+    if request.endpoint in endpoints_sem_cliente or request.endpoint is None:
+        return
+
+    if "cliente_id" not in session:
+        return redirect(url_for("clientes"))
+
+
+@app.context_processor
+def injetar_cliente_atual():
+    cliente_id = session.get("cliente_id")
+    return {"cliente_atual": Cliente.query.get(cliente_id) if cliente_id else None}
 
 
 # ===========================
@@ -136,6 +198,39 @@ def usuarios():
 
 
 # ===========================
+# CLIENTES
+# ===========================
+
+@app.route("/clientes", methods=["GET", "POST"])
+@login_required
+def clientes():
+
+    if request.method == "POST":
+
+        novo = Cliente(nome=request.form["nome"])
+
+        db.session.add(novo)
+        db.session.commit()
+
+        return redirect("/clientes")
+
+    lista = Cliente.query.order_by(Cliente.nome).all()
+
+    return render_template("clientes.html", clientes=lista)
+
+
+@app.route("/clientes/selecionar/<int:id>")
+@login_required
+def selecionar_cliente(id):
+
+    cliente = Cliente.query.get_or_404(id)
+
+    session["cliente_id"] = cliente.id
+
+    return redirect("/")
+
+
+# ===========================
 # FILTROS DE TEMPLATE
 # ===========================
 
@@ -184,7 +279,8 @@ def segmentos():
     if request.method == "POST":
 
         novo = Segmento(
-            nome=request.form["nome"]
+            nome=request.form["nome"],
+            cliente_id=session["cliente_id"]
         )
 
         db.session.add(novo)
@@ -236,7 +332,8 @@ def contatos():
             nome=request.form["nome"],
             telefone=request.form["telefone"],
             cargo=request.form["cargo"],
-            segmento_id=request.form["segmento"]
+            segmento_id=request.form["segmento"],
+            cliente_id=session["cliente_id"]
         )
 
         db.session.add(contato)
@@ -295,7 +392,8 @@ def campanhas():
         campanha = Campanha(
             titulo=titulo,
             destino=destino,
-            codigo=codigo
+            codigo=codigo,
+            cliente_id=session["cliente_id"]
         )
 
         db.session.add(campanha)
@@ -328,6 +426,8 @@ def campanhas():
         db.session.query(
             CampanhaContato.campanha_id,
             func.count(CampanhaContato.id)
+        ).join(
+            Campanha, CampanhaContato.campanha_id == Campanha.id
         ).group_by(CampanhaContato.campanha_id).all()
     )
 
@@ -650,7 +750,7 @@ def relatorio_campanha(id):
 @login_required
 def listar_cliques():
 
-    cliques = Clique.query.order_by(
+    cliques = Clique.query.join(Campanha).order_by(
         Clique.data.desc()
     ).all()
 
@@ -668,7 +768,7 @@ def listar_cliques():
 @login_required
 def teste():
 
-    relacionamentos = CampanhaContato.query.all()
+    relacionamentos = CampanhaContato.query.join(Campanha).all()
 
     texto = ""
 
