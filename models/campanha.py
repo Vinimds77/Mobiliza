@@ -25,4 +25,10 @@ class Campanha(db.Model):
         default=Cliente.padrao_id
     )
 
+    ativa = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True
+    )
+
     cliente = db.relationship("Cliente")

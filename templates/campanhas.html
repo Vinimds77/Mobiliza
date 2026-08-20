@@ -82,7 +82,27 @@
 
     </div>
 
-    <h2>Campanhas Criadas</h2>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+
+        <h2 class="mb-0">
+            {% if mostrar_arquivadas %}
+                Campanhas Arquivadas
+            {% else %}
+                Campanhas Criadas
+            {% endif %}
+        </h2>
+
+        {% if mostrar_arquivadas %}
+            <a href="/campanhas" class="btn btn-outline-secondary btn-sm">
+                ← Ver campanhas ativas
+            </a>
+        {% else %}
+            <a href="/campanhas?arquivadas=1" class="btn btn-outline-secondary btn-sm">
+                Ver campanhas arquivadas
+            </a>
+        {% endif %}
+
+    </div>
 
     <table class="table table-striped table-bordered align-middle">
 
@@ -138,14 +158,28 @@
 
                     </a>
 
+                    {% if campanha.ativa %}
+
                     <a
                         href="/campanhas/excluir/{{ campanha.id }}"
                         class="btn btn-danger btn-sm"
-                        onclick="return confirm('Tem certeza que deseja excluir a campanha {{ campanha.titulo }}? Todos os cliques e vínculos com contatos serão apagados.');">
+                        onclick="return confirm('Arquivar a campanha {{ campanha.titulo }}? Ela sai da listagem, mas o histórico de cliques e os links continuam funcionando normalmente.');">
 
-                        Excluir
+                        Arquivar
 
                     </a>
+
+                    {% else %}
+
+                    <a
+                        href="/campanhas/restaurar/{{ campanha.id }}"
+                        class="btn btn-success btn-sm">
+
+                        Restaurar
+
+                    </a>
+
+                    {% endif %}
 
                 </td>
 

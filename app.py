@@ -25,6 +25,7 @@ from flask_login import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text, func, event
 from sqlalchemy.orm import with_loader_criteria
+from sqlalchemy.exc import OperationalError
 
 from config import Config
 from database import db
@@ -256,7 +257,7 @@ def dashboard():
 
     total_segmentos = Segmento.query.count()
     total_contatos = Contato.query.count()
-    total_campanhas = Campanha.query.count()
+    total_campanhas = Campanha.query.filter_by(ativa=True).count()
     total_cliques = Clique.query.count()
 
     return render_template(
@@ -419,7 +420,9 @@ def campanhas():
 
         return redirect("/campanhas")
 
-    lista = Campanha.query.all()
+    mostrar_arquivadas = request.args.get("arquivadas") == "1"
+
+    lista = Campanha.query.filter_by(ativa=not mostrar_arquivadas).all()
     lista_segmentos = Segmento.query.all()
 
     contagem_contatos = dict(
@@ -435,20 +438,37 @@ def campanhas():
         "campanhas.html",
         campanhas=lista,
         segmentos=lista_segmentos,
-        contagem_contatos=contagem_contatos
+        contagem_contatos=contagem_contatos,
+        mostrar_arquivadas=mostrar_arquivadas
     )
 
 
 @app.route("/campanhas/excluir/<int:id>")
 @login_required
-def excluir_campanha(id):
+def arquivar_campanha(id):
 
+    # Arquivamento lógico: a campanha some da listagem normal, mas
+    # cliques, campanhas_contatos e o link /r/<codigo> continuam
+    # intactos e funcionando (histórico e métricas preservados).
     campanha = Campanha.query.get_or_404(id)
 
-    Clique.query.filter_by(campanha_id=id).delete()
-    CampanhaContato.query.filter_by(campanha_id=id).delete()
+    campanha.ativa = False
 
-    db.session.delete(campanha)
+    db.session.commit()
+
+    return redirect("/campanhas")
+
+
+@app.route("/campanhas/restaurar/<int:id>")
+@login_required
+def restaurar_campanha(id):
+
+    # Só troca ativa de volta pra True. Não recria nada, não mexe em
+    # codigo/id/campanhas_contatos/cliques — os links continuam os mesmos.
+    campanha = Campanha.query.get_or_404(id)
+
+    campanha.ativa = True
+
     db.session.commit()
 
     return redirect("/campanhas")
@@ -461,9 +481,22 @@ def excluir_campanha(id):
 @app.route("/r/<codigo>")
 def abrir_link(codigo):
 
-    relacionamento = CampanhaContato.query.filter_by(
-        codigo=codigo
-    ).first()
+    try:
+        relacionamento = CampanhaContato.query.filter_by(
+            codigo=codigo
+        ).first()
+
+    except OperationalError as erro:
+
+        db.session.rollback()
+
+        print(
+            f"[abrir_link] Falha de conexão com o banco ao consultar "
+            f"codigo={codigo}: {erro}",
+            flush=True
+        )
+
+        return "Serviço temporariamente indisponível. Tente novamente em instantes.", 503
 
     if not relacionamento:
         return "Link inválido."
