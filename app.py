@@ -12,7 +12,7 @@ import secrets
 import requests
 import tzdata
 import click
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from user_agents import parse
 from flask_login import (
@@ -50,6 +50,12 @@ with app.app_context():
 
     if "criado_em" not in colunas_usuarios:
         db.session.execute(text("ALTER TABLE usuarios ADD COLUMN criado_em TIMESTAMP"))
+        db.session.commit()
+
+    colunas_campanhas = [c["name"] for c in inspect(db.engine).get_columns("campanhas")]
+
+    if "criado_em" not in colunas_campanhas:
+        db.session.execute(text("ALTER TABLE campanhas ADD COLUMN criado_em TIMESTAMP"))
         db.session.commit()
 
     if Usuario.query.count() == 0:
@@ -422,7 +428,37 @@ def campanhas():
 
     mostrar_arquivadas = request.args.get("arquivadas") == "1"
 
-    lista = Campanha.query.filter_by(ativa=not mostrar_arquivadas).all()
+    page = request.args.get("page", 1, type=int)
+    busca = request.args.get("busca", "").strip()
+    data_inicio = request.args.get("data_inicio", "").strip()
+    data_fim = request.args.get("data_fim", "").strip()
+
+    consulta = Campanha.query.filter_by(ativa=not mostrar_arquivadas)
+
+    if busca:
+        consulta = consulta.filter(Campanha.titulo.ilike(f"%{busca}%"))
+
+    if data_inicio:
+        consulta = consulta.filter(
+            Campanha.criado_em >= datetime.strptime(data_inicio, "%Y-%m-%d")
+        )
+
+    if data_fim:
+        consulta = consulta.filter(
+            Campanha.criado_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1)
+        )
+
+    # Mais recentes primeiro. criado_em pode ser nulo em campanhas antigas
+    # (criadas antes desse campo existir) — essas caem pro fim da lista,
+    # ordenadas por id como aproximação de recência.
+    consulta = consulta.order_by(
+        Campanha.criado_em.is_(None),
+        Campanha.criado_em.desc(),
+        Campanha.id.desc()
+    )
+
+    paginacao = consulta.paginate(page=page, per_page=10, error_out=False)
+
     lista_segmentos = Segmento.query.all()
 
     contagem_contatos = dict(
@@ -436,10 +472,14 @@ def campanhas():
 
     return render_template(
         "campanhas.html",
-        campanhas=lista,
+        campanhas=paginacao.items,
+        paginacao=paginacao,
         segmentos=lista_segmentos,
         contagem_contatos=contagem_contatos,
-        mostrar_arquivadas=mostrar_arquivadas
+        mostrar_arquivadas=mostrar_arquivadas,
+        busca=busca,
+        data_inicio=data_inicio,
+        data_fim=data_fim
     )
 
 

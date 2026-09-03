@@ -93,16 +93,74 @@
         </h2>
 
         {% if mostrar_arquivadas %}
-            <a href="/campanhas" class="btn btn-outline-secondary btn-sm">
+            <a href="/campanhas?busca={{ busca }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}" class="btn btn-outline-secondary btn-sm">
                 ← Ver campanhas ativas
             </a>
         {% else %}
-            <a href="/campanhas?arquivadas=1" class="btn btn-outline-secondary btn-sm">
+            <a href="/campanhas?arquivadas=1&busca={{ busca }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}" class="btn btn-outline-secondary btn-sm">
                 Ver campanhas arquivadas
             </a>
         {% endif %}
 
     </div>
+
+    <form method="GET" class="row g-2 align-items-end mb-3">
+
+        {% if mostrar_arquivadas %}
+            <input type="hidden" name="arquivadas" value="1">
+        {% endif %}
+
+        <div class="col-12 col-sm-4">
+            <label class="form-label">Buscar por título</label>
+            <input
+                type="text"
+                class="form-control"
+                name="busca"
+                value="{{ busca }}"
+                placeholder="Nome da campanha...">
+        </div>
+
+        <div class="col-6 col-sm-3">
+            <label class="form-label">De</label>
+            <input
+                type="date"
+                class="form-control"
+                name="data_inicio"
+                value="{{ data_inicio }}">
+        </div>
+
+        <div class="col-6 col-sm-3">
+            <label class="form-label">Até</label>
+            <input
+                type="date"
+                class="form-control"
+                name="data_fim"
+                value="{{ data_fim }}">
+        </div>
+
+        <div class="col-12 col-sm-2 d-flex gap-2">
+            <button class="btn btn-primary w-100">
+                Filtrar
+            </button>
+        </div>
+
+        {% if busca or data_inicio or data_fim %}
+        <div class="col-12">
+            <a href="/campanhas{% if mostrar_arquivadas %}?arquivadas=1{% endif %}" class="btn btn-outline-secondary btn-sm">
+                Limpar filtros
+            </a>
+        </div>
+        {% endif %}
+
+    </form>
+
+    {% if not campanhas %}
+
+        <div class="alert alert-info">
+            Nenhuma campanha encontrada.
+        </div>
+
+    {% else %}
 
     <table class="table table-striped table-bordered align-middle">
 
@@ -190,5 +248,49 @@
         </tbody>
 
     </table>
+
+    {% if paginacao.pages > 1 %}
+
+    <nav aria-label="Paginação de campanhas">
+
+        <ul class="pagination">
+
+            <li class="page-item {% if not paginacao.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{% if paginacao.has_prev %}?page={{ paginacao.prev_num }}&busca={{ busca }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if mostrar_arquivadas %}&arquivadas=1{% endif %}{% else %}#{% endif %}">
+                    Anterior
+                </a>
+            </li>
+
+            {% for p in paginacao.iter_pages() %}
+
+                {% if p %}
+
+                    <li class="page-item {% if p == paginacao.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}&busca={{ busca }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if mostrar_arquivadas %}&arquivadas=1{% endif %}">
+                            {{ p }}
+                        </a>
+                    </li>
+
+                {% else %}
+
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+
+                {% endif %}
+
+            {% endfor %}
+
+            <li class="page-item {% if not paginacao.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{% if paginacao.has_next %}?page={{ paginacao.next_num }}&busca={{ busca }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if mostrar_arquivadas %}&arquivadas=1{% endif %}{% else %}#{% endif %}">
+                    Próxima
+                </a>
+            </li>
+
+        </ul>
+
+    </nav>
+
+    {% endif %}
+
+    {% endif %}
 
 {% endblock %}

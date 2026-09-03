@@ -1,4 +1,5 @@
 from database import db
+from datetime import datetime, timezone
 from models.cliente import Cliente
 
 
@@ -29,6 +30,11 @@ class Campanha(db.Model):
         db.Boolean,
         nullable=False,
         default=True
+    )
+
+    criado_em = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     cliente = db.relationship("Cliente")
