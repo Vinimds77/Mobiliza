@@ -950,6 +950,40 @@ def relatorio_segmentos():
         }
 
         if seg_tipo == "grupo":
+
+            # Desempenho de cada grupo (=Contato) individualmente dentro
+            # deste segmento, no mesmo período — a linha acima é só a soma.
+            detalhes_grupos = (
+                db.session.query(
+                    Contato.nome,
+                    func.count(CampanhaContato.id),
+                    func.sum(case((CampanhaContato.clicou.is_(True), 1), else_=0))
+                )
+                .select_from(Contato)
+                .join(CampanhaContato, CampanhaContato.contato_id == Contato.id)
+                .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
+                .filter(Contato.segmento_id == seg_id)
+                .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
+                .group_by(Contato.id, Contato.nome)
+                .order_by(Contato.nome)
+                .all()
+            )
+
+            linha["detalhes"] = []
+
+            for nome_grupo, envios_grupo, cliques_grupo in detalhes_grupos:
+
+                cliques_grupo = cliques_grupo or 0
+
+                ctr_grupo = round(cliques_grupo / envios_grupo * 100, 1) if envios_grupo else 0
+
+                linha["detalhes"].append({
+                    "nome": nome_grupo,
+                    "envios": envios_grupo,
+                    "cliques_diretos": cliques_grupo,
+                    "ctr": ctr_grupo
+                })
+
             grupos.append(linha)
         else:
             regionais.append(linha)

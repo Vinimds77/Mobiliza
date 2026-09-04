@@ -182,6 +182,52 @@
 
 </table>
 
+{% for r in grupos %}
+
+<h5 class="text-muted">Detalhamento por grupo — {{ r.segmento }}</h5>
+
+<table class="table table-sm table-striped table-bordered align-middle mb-4">
+
+    <thead class="table-secondary">
+
+        <tr>
+            <th>Grupo</th>
+            <th>Envios no Período</th>
+            <th>Cliques Diretos</th>
+            <th>CTR</th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        {% for d in r.detalhes %}
+
+        <tr>
+            <td>{{ d.nome }}</td>
+            <td>{{ d.envios }}</td>
+            <td>{{ d.cliques_diretos }}</td>
+            <td>{{ d.ctr }}%</td>
+        </tr>
+
+        {% endfor %}
+
+        {% if not r.detalhes %}
+
+        <tr>
+            <td colspan="4" class="text-center text-muted">
+                Nenhum grupo com envio nesse período.
+            </td>
+        </tr>
+
+        {% endif %}
+
+    </tbody>
+
+</table>
+
+{% endfor %}
+
 {% endif %}
 
 {% endblock %}
