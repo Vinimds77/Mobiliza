@@ -24,7 +24,7 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text, func, event
-from sqlalchemy.orm import with_loader_criteria
+from sqlalchemy.orm import with_loader_criteria, joinedload
 from sqlalchemy.exc import OperationalError
 
 from config import Config
@@ -922,16 +922,35 @@ def relatorio_segmentos():
 
     inicio_utc, fim_utc = limites_utc_do_periodo(data_inicio, data_fim)
 
-    # Todo envio (CampanhaContato) do período, já com o Contato/Segmento e a
-    # Campanha carregados — base única pra todas as métricas abaixo, pra não
-    # ter duas queries calculando a mesma coisa de jeitos diferentes.
+    # Todo envio (CampanhaContato) do período, já com o Contato/Segmento
+    # pré-carregados via joinedload — sem isso, cada acesso a r.contato e
+    # contato.segmento dispara uma query lazy-load por linha (N+1).
     relacionamentos = (
         CampanhaContato.query
         .join(Contato, Contato.id == CampanhaContato.contato_id)
         .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
+        .options(joinedload(CampanhaContato.contato).joinedload(Contato.segmento))
         .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
         .all()
     )
+
+    # IPs distintos por par (campanha, contato) — UMA query agregada pra
+    # todos os pares de uma vez, em vez de uma query de Clique por linha
+    # dentro do loop (era isso que causava o timeout: ~200 envios na semana
+    # = ~200 queries extras de rede pro Neon).
+    alcance_por_par = {
+        (campanha_id, contato_id): ips_distintos
+        for campanha_id, contato_id, ips_distintos in (
+            db.session.query(
+                Clique.campanha_id,
+                Clique.contato_id,
+                func.count(func.distinct(Clique.ip))
+            )
+            .filter(Clique.ip.isnot(None), Clique.ip != "")
+            .group_by(Clique.campanha_id, Clique.contato_id)
+            .all()
+        )
+    }
 
     contagem_segmento = dict(
         db.session.query(
@@ -951,15 +970,7 @@ def relatorio_segmentos():
         if segmento is None:
             continue
 
-        # Alcance estimado deste envio específico: mesma lógica de
-        # relatorio_campanha (IPs distintos e tipos de dispositivo distintos
-        # que clicaram nesse par campanha+contato).
-        cliques = Clique.query.filter_by(
-            campanha_id=r.campanha_id,
-            contato_id=r.contato_id
-        ).all()
-
-        ips = {c.ip for c in cliques if c.ip}
+        ips_distintos = alcance_por_par.get((r.campanha_id, r.contato_id), 0)
 
         seg_acc = segmentos_acc.setdefault(segmento.id, {
             "segmento": segmento.nome,
@@ -974,7 +985,7 @@ def relatorio_segmentos():
 
         seg_acc["envios"] += 1
         seg_acc["cliques_totais"] += r.total_cliques
-        seg_acc["alcance_ips"] += len(ips)
+        seg_acc["alcance_ips"] += ips_distintos
         seg_acc["campanhas"].add(r.campanha_id)
 
         if r.clicou:
@@ -991,7 +1002,7 @@ def relatorio_segmentos():
 
         cont_acc["envios"] += 1
         cont_acc["cliques_totais"] += r.total_cliques
-        cont_acc["alcance_ips"] += len(ips)
+        cont_acc["alcance_ips"] += ips_distintos
 
         if r.clicou:
             cont_acc["cliques_diretos"] += 1
