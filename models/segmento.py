@@ -17,6 +17,12 @@ class Segmento(db.Model):
         default=Cliente.padrao_id
     )
 
+    tipo = db.Column(
+        db.String(20),
+        nullable=False,
+        default="regional"
+    )
+
     cliente = db.relationship("Cliente")
 
     contatos = db.relationship(

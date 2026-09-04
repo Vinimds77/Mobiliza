@@ -58,6 +58,14 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE campanhas ADD COLUMN criado_em TIMESTAMP"))
         db.session.commit()
 
+    colunas_segmentos = [c["name"] for c in inspect(db.engine).get_columns("segmentos")]
+
+    if "tipo" not in colunas_segmentos:
+        db.session.execute(text(
+            "ALTER TABLE segmentos ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT 'regional'"
+        ))
+        db.session.commit()
+
     if Usuario.query.count() == 0:
 
         admin_username = os.getenv("ADMIN_USERNAME")
@@ -287,7 +295,8 @@ def segmentos():
 
         novo = Segmento(
             nome=request.form["nome"],
-            cliente_id=session["cliente_id"]
+            cliente_id=session["cliente_id"],
+            tipo=request.form.get("tipo", "regional")
         )
 
         db.session.add(novo)
@@ -299,11 +308,32 @@ def segmentos():
 
     erro = request.args.get("erro")
 
+    contagem_contatos = dict(
+        db.session.query(
+            Segmento.id, func.count(Contato.id)
+        ).join(Contato, Contato.segmento_id == Segmento.id)
+        .group_by(Segmento.id).all()
+    )
+
     return render_template(
         "segmentos.html",
         segmentos=lista,
-        erro=erro
+        erro=erro,
+        contagem_contatos=contagem_contatos
     )
+
+
+@app.route("/segmentos/tipo/<int:id>", methods=["POST"])
+@login_required
+def alterar_tipo_segmento(id):
+
+    segmento = Segmento.query.get_or_404(id)
+
+    segmento.tipo = request.form.get("tipo", "regional")
+
+    db.session.commit()
+
+    return redirect("/segmentos")
 
 
 @app.route("/segmentos/excluir/<int:id>")
@@ -875,6 +905,7 @@ def relatorio_segmentos():
         db.session.query(
             Segmento.id,
             Segmento.nome,
+            Segmento.tipo,
             func.count(CampanhaContato.id),
             func.sum(case((CampanhaContato.clicou.is_(True), 1), else_=0)),
             func.count(func.distinct(CampanhaContato.campanha_id))
@@ -884,30 +915,49 @@ def relatorio_segmentos():
         .join(CampanhaContato, CampanhaContato.contato_id == Contato.id)
         .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
         .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
-        .group_by(Segmento.id, Segmento.nome)
+        .group_by(Segmento.id, Segmento.nome, Segmento.tipo)
         .order_by(Segmento.nome)
         .all()
     )
 
-    resultado = []
+    contagem_segmento = dict(
+        db.session.query(
+            Segmento.id,
+            func.count(Contato.id)
+        ).join(Contato, Contato.segmento_id == Segmento.id)
+        .group_by(Segmento.id).all()
+    )
 
-    for seg_id, seg_nome, total_contatos, cliques_diretos, total_campanhas in linhas:
+    regionais = []
+    grupos = []
+
+    for seg_id, seg_nome, seg_tipo, envios, cliques_diretos, total_campanhas in linhas:
 
         cliques_diretos = cliques_diretos or 0
 
-        ctr = round(cliques_diretos / total_contatos * 100, 1) if total_contatos else 0
+        # CTR = cliques / envios (mensagens realmente disparadas no período),
+        # não cliques / contatos únicos do segmento — essas são métricas
+        # diferentes, ver "Contatos no Segmento"/"Grupos com Link Postado" abaixo.
+        ctr = round(cliques_diretos / envios * 100, 1) if envios else 0
 
-        resultado.append({
+        linha = {
             "segmento": seg_nome,
-            "total_contatos": total_contatos,
+            "envios": envios,
+            "contatos_segmento": contagem_segmento.get(seg_id, 0),
             "cliques_diretos": cliques_diretos,
             "ctr": ctr,
             "total_campanhas": total_campanhas
-        })
+        }
+
+        if seg_tipo == "grupo":
+            grupos.append(linha)
+        else:
+            regionais.append(linha)
 
     return render_template(
         "relatorio_segmentos.html",
-        resultado=resultado,
+        regionais=regionais,
+        grupos=grupos,
         data_inicio=data_inicio,
         data_fim=data_fim,
         gerado_em=datetime.now(timezone.utc).replace(tzinfo=None)

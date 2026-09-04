@@ -39,6 +39,20 @@
 
                 </div>
 
+                <div class="mb-3">
+
+                    <label>Tipo</label>
+
+                    <select class="form-select" name="tipo">
+
+                        <option value="regional" selected>Regional (pessoas)</option>
+
+                        <option value="grupo">Grupo de WhatsApp</option>
+
+                    </select>
+
+                </div>
+
                 <button class="btn btn-success">
                     Salvar
                 </button>
@@ -59,6 +73,10 @@
 
                 <th>Nome</th>
 
+                <th>Contatos</th>
+
+                <th>Tipo</th>
+
                 <th class="text-end">Ações</th>
 
             </tr>
@@ -74,6 +92,28 @@
                 <td>{{ segmento.id }}</td>
 
                 <td>{{ segmento.nome }}</td>
+
+                <td>{{ contagem_contatos.get(segmento.id, 0) }}</td>
+
+                <td>
+
+                    <form method="POST" action="/segmentos/tipo/{{ segmento.id }}" class="d-flex gap-2">
+
+                        <select class="form-select form-select-sm" name="tipo" style="width: auto;">
+
+                            <option value="regional" {% if segmento.tipo == "regional" %}selected{% endif %}>Regional</option>
+
+                            <option value="grupo" {% if segmento.tipo == "grupo" %}selected{% endif %}>Grupo de WhatsApp</option>
+
+                        </select>
+
+                        <button class="btn btn-outline-primary btn-sm">
+                            Salvar
+                        </button>
+
+                    </form>
+
+                </td>
 
                 <td class="text-end">
 

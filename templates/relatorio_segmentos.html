@@ -92,13 +92,16 @@
 
 <hr>
 
-<table class="table table-striped table-bordered align-middle">
+<h4>Segmentos Regionais</h4>
+
+<table class="table table-striped table-bordered align-middle mb-5">
 
     <thead class="table-dark">
 
         <tr>
             <th>Segmento</th>
-            <th>Total de Contatos</th>
+            <th>Contatos no Segmento</th>
+            <th>Envios no Período</th>
             <th>Cliques Diretos</th>
             <th>CTR</th>
             <th>Campanhas no Período</th>
@@ -108,11 +111,12 @@
 
     <tbody>
 
-        {% for r in resultado %}
+        {% for r in regionais %}
 
         <tr>
             <td>{{ r.segmento }}</td>
-            <td>{{ r.total_contatos }}</td>
+            <td>{{ r.contatos_segmento }}</td>
+            <td>{{ r.envios }}</td>
             <td>{{ r.cliques_diretos }}</td>
             <td>{{ r.ctr }}%</td>
             <td>{{ r.total_campanhas }}</td>
@@ -120,11 +124,11 @@
 
         {% endfor %}
 
-        {% if not resultado %}
+        {% if not regionais %}
 
         <tr>
-            <td colspan="5" class="text-center text-muted">
-                Nenhuma campanha com contatos vinculados encontrada nesse período.
+            <td colspan="6" class="text-center text-muted">
+                Nenhuma campanha de segmento regional encontrada nesse período.
             </td>
         </tr>
 
@@ -133,5 +137,51 @@
     </tbody>
 
 </table>
+
+{% if grupos %}
+
+<h4>Segmentos de Grupo</h4>
+
+<div class="alert alert-info">
+    Cada linha aqui representa um grupo de WhatsApp, não uma pessoa — o link é postado
+    uma única vez no grupo. Cliques podem vir de várias pessoas do mesmo grupo e não
+    são atribuíveis individualmente.
+</div>
+
+<table class="table table-striped table-bordered align-middle">
+
+    <thead class="table-dark">
+
+        <tr>
+            <th>Segmento</th>
+            <th>Grupos com Link Postado</th>
+            <th>Envios no Período</th>
+            <th>Cliques Diretos</th>
+            <th>CTR</th>
+            <th>Campanhas no Período</th>
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        {% for r in grupos %}
+
+        <tr>
+            <td>{{ r.segmento }}</td>
+            <td>{{ r.contatos_segmento }}</td>
+            <td>{{ r.envios }}</td>
+            <td>{{ r.cliques_diretos }}</td>
+            <td>{{ r.ctr }}%</td>
+            <td>{{ r.total_campanhas }}</td>
+        </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+{% endif %}
 
 {% endblock %}
