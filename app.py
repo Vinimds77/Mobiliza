@@ -12,7 +12,7 @@ import secrets
 import requests
 import tzdata
 import click
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time as dt_time
 from zoneinfo import ZoneInfo
 from user_agents import parse
 from flask_login import (
@@ -23,7 +23,7 @@ from flask_login import (
     current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text, func, event
+from sqlalchemy import inspect, text, func, event, case
 from sqlalchemy.orm import with_loader_criteria
 from sqlalchemy.exc import OperationalError
 
@@ -811,6 +811,105 @@ def relatorio_campanha(id):
         resumo=resumo,
         ranking_compartilhamento=ranking_compartilhamento,
         detalhado=sorted(detalhado, key=lambda d: d["nome"]),
+        gerado_em=datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+
+# ===========================
+# RELATÓRIO SEMANAL POR SEGMENTO
+# ===========================
+
+def periodo_padrao_semanal():
+    """Sexta-feira mais recente ANTERIOR a hoje até hoje, em horário de
+    Brasília. Se hoje já é sexta, usa a sexta anterior (últimos 7 dias)."""
+
+    hoje_br = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
+
+    dias_desde_sexta = (hoje_br.weekday() - 4) % 7
+
+    if dias_desde_sexta == 0:
+        dias_desde_sexta = 7
+
+    sexta_br = hoje_br - timedelta(days=dias_desde_sexta)
+
+    return sexta_br, hoje_br
+
+
+def limites_utc_do_periodo(data_inicio, data_fim):
+    """Converte um intervalo de datas (calendário de Brasília) nos limites
+    naive-UTC equivalentes, pra comparar direto com criado_em."""
+
+    inicio_br = datetime.combine(data_inicio, dt_time.min, tzinfo=ZoneInfo("America/Sao_Paulo"))
+    fim_br = datetime.combine(data_fim, dt_time.max, tzinfo=ZoneInfo("America/Sao_Paulo"))
+
+    inicio_utc = inicio_br.astimezone(timezone.utc).replace(tzinfo=None)
+    fim_utc = fim_br.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return inicio_utc, fim_utc
+
+
+@app.route("/relatorios/segmentos")
+@login_required
+def relatorio_segmentos():
+
+    sexta_padrao, hoje_padrao = periodo_padrao_semanal()
+
+    data_inicio_str = request.args.get("data_inicio")
+    data_fim_str = request.args.get("data_fim")
+
+    try:
+        data_inicio = (
+            datetime.strptime(data_inicio_str, "%Y-%m-%d").date()
+            if data_inicio_str else sexta_padrao
+        )
+        data_fim = (
+            datetime.strptime(data_fim_str, "%Y-%m-%d").date()
+            if data_fim_str else hoje_padrao
+        )
+    except ValueError:
+        data_inicio, data_fim = sexta_padrao, hoje_padrao
+
+    inicio_utc, fim_utc = limites_utc_do_periodo(data_inicio, data_fim)
+
+    linhas = (
+        db.session.query(
+            Segmento.id,
+            Segmento.nome,
+            func.count(CampanhaContato.id),
+            func.sum(case((CampanhaContato.clicou.is_(True), 1), else_=0)),
+            func.count(func.distinct(CampanhaContato.campanha_id))
+        )
+        .select_from(Segmento)
+        .join(Contato, Contato.segmento_id == Segmento.id)
+        .join(CampanhaContato, CampanhaContato.contato_id == Contato.id)
+        .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
+        .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
+        .group_by(Segmento.id, Segmento.nome)
+        .order_by(Segmento.nome)
+        .all()
+    )
+
+    resultado = []
+
+    for seg_id, seg_nome, total_contatos, cliques_diretos, total_campanhas in linhas:
+
+        cliques_diretos = cliques_diretos or 0
+
+        ctr = round(cliques_diretos / total_contatos * 100, 1) if total_contatos else 0
+
+        resultado.append({
+            "segmento": seg_nome,
+            "total_contatos": total_contatos,
+            "cliques_diretos": cliques_diretos,
+            "ctr": ctr,
+            "total_campanhas": total_campanhas
+        })
+
+    return render_template(
+        "relatorio_segmentos.html",
+        resultado=resultado,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
         gerado_em=datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
