@@ -58,6 +58,12 @@ with app.app_context():
         db.session.execute(text("ALTER TABLE campanhas ADD COLUMN criado_em TIMESTAMP"))
         db.session.commit()
 
+    colunas_campanhas = [c["name"] for c in inspect(db.engine).get_columns("campanhas")]
+
+    if "data_publicacao" not in colunas_campanhas:
+        db.session.execute(text("ALTER TABLE campanhas ADD COLUMN data_publicacao TIMESTAMP"))
+        db.session.commit()
+
     colunas_segmentos = [c["name"] for c in inspect(db.engine).get_columns("segmentos")]
 
     if "tipo" not in colunas_segmentos:
@@ -451,7 +457,8 @@ def campanhas():
             titulo=titulo,
             destino=destino,
             codigo=codigo,
-            cliente_id=session["cliente_id"]
+            cliente_id=session["cliente_id"],
+            data_publicacao=datetime_local_para_utc(request.form.get("data_publicacao", ""))
         )
 
         db.session.add(campanha)
@@ -491,20 +498,23 @@ def campanhas():
 
     if data_inicio:
         consulta = consulta.filter(
-            Campanha.criado_em >= datetime.strptime(data_inicio, "%Y-%m-%d")
+            data_efetiva_campanha() >= datetime.strptime(data_inicio, "%Y-%m-%d")
         )
 
     if data_fim:
         consulta = consulta.filter(
-            Campanha.criado_em < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1)
+            data_efetiva_campanha() < datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1)
         )
 
-    # Mais recentes primeiro. criado_em pode ser nulo em campanhas antigas
-    # (criadas antes desse campo existir) — essas caem pro fim da lista,
-    # ordenadas por id como aproximação de recência.
+    # Mais recentes primeiro, por data_publicacao quando existir, senão
+    # criado_em (campanhas do backfill, sem data_publicacao preenchida).
+    # Se nenhuma das duas existir (não deveria mais acontecer, mas por
+    # segurança), cai pro fim da lista, ordenada por id.
+    data_efetiva = data_efetiva_campanha()
+
     consulta = consulta.order_by(
-        Campanha.criado_em.is_(None),
-        Campanha.criado_em.desc(),
+        data_efetiva.is_(None),
+        data_efetiva.desc(),
         Campanha.id.desc()
     )
 
@@ -530,8 +540,24 @@ def campanhas():
         mostrar_arquivadas=mostrar_arquivadas,
         busca=busca,
         data_inicio=data_inicio,
-        data_fim=data_fim
+        data_fim=data_fim,
+        agora_datetime_local=utc_para_datetime_local(datetime.now(timezone.utc).replace(tzinfo=None))
     )
+
+
+@app.route("/campanhas/data_publicacao/<int:id>", methods=["POST"])
+@login_required
+def alterar_data_publicacao(id):
+
+    campanha = Campanha.query.get_or_404(id)
+
+    campanha.data_publicacao = datetime_local_para_utc(
+        request.form.get("data_publicacao", "")
+    )
+
+    db.session.commit()
+
+    return redirect(f"/campanha/{id}")
 
 
 @app.route("/campanhas/excluir/<int:id>")
@@ -789,7 +815,8 @@ def detalhes_campanha(id):
         "campanha_detalhes.html",
         campanha=campanha,
         relacionamentos=relacionamentos,
-        base_url=request.host_url.rstrip("/")
+        base_url=request.host_url.rstrip("/"),
+        data_publicacao_local=utc_para_datetime_local(campanha.data_publicacao)
     )
 
 # ===========================
@@ -899,6 +926,45 @@ def limites_utc_do_periodo(data_inicio, data_fim):
     return inicio_utc, fim_utc
 
 
+def datetime_local_para_utc(valor_str):
+    """Converte o value de um <input type='datetime-local'> (ex:
+    '2026-09-05T14:30'), assumido em horário de Brasília, pro padrão
+    naive-UTC já usado em criado_em/Clique.data. Retorna None se o valor
+    vier vazio ou em formato inválido."""
+
+    if not valor_str:
+        return None
+
+    try:
+        dt_ingenuo = datetime.strptime(valor_str, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+
+    dt_br = dt_ingenuo.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+
+    return dt_br.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def utc_para_datetime_local(valor_utc):
+    """Converte um naive-UTC salvo no banco de volta pro formato que o
+    <input type='datetime-local'> espera no atributo value, em horário
+    de Brasília."""
+
+    if valor_utc is None:
+        return ""
+
+    valor_br = valor_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/Sao_Paulo"))
+
+    return valor_br.strftime("%Y-%m-%dT%H:%M")
+
+
+def data_efetiva_campanha():
+    """Expressão SQL: data_publicacao quando preenchida, senão criado_em
+    (campanhas antigas, do backfill, só têm criado_em)."""
+
+    return func.coalesce(Campanha.data_publicacao, Campanha.criado_em)
+
+
 @app.route("/relatorios/segmentos")
 @login_required
 def relatorio_segmentos():
@@ -930,7 +996,7 @@ def relatorio_segmentos():
         .join(Contato, Contato.id == CampanhaContato.contato_id)
         .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
         .options(joinedload(CampanhaContato.contato).joinedload(Contato.segmento))
-        .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
+        .filter(data_efetiva_campanha() >= inicio_utc, data_efetiva_campanha() <= fim_utc)
         .all()
     )
 

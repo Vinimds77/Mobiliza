@@ -37,4 +37,9 @@ class Campanha(db.Model):
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
+    data_publicacao = db.Column(
+        db.DateTime,
+        nullable=True
+    )
+
     cliente = db.relationship("Cliente")

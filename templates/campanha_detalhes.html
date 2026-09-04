@@ -14,6 +14,42 @@
 
     <h1>📢 {{ campanha.titulo }}</h1>
 
+    <div class="card mb-3" style="max-width: 420px;">
+
+        <div class="card-body">
+
+            <label class="form-label mb-1">
+                Data e hora da publicação/disparo
+            </label>
+
+            <form method="POST" action="/campanhas/data_publicacao/{{ campanha.id }}" class="d-flex gap-2">
+
+                <input
+                    type="datetime-local"
+                    name="data_publicacao"
+                    class="form-control form-control-sm"
+                    value="{{ data_publicacao_local }}">
+
+                <button class="btn btn-outline-primary btn-sm">
+                    Salvar
+                </button>
+
+            </form>
+
+            {% if not campanha.data_publicacao %}
+
+                <small class="form-text text-muted">
+                    Não informada — o relatório e a listagem estão usando a data de criação
+                    ({{ campanha.criado_em | brasilia }}) como aproximação. Preencha e salve
+                    pra usar a data real.
+                </small>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
     <hr>
 
     <div class="row g-3 mb-4">

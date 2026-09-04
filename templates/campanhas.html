@@ -72,6 +72,25 @@
 
                 </div>
 
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Data e hora da publicação/disparo
+                    </label>
+
+                    <input
+                        type="datetime-local"
+                        class="form-control"
+                        name="data_publicacao"
+                        value="{{ agora_datetime_local }}">
+
+                    <small class="form-text text-muted">
+                        Já vem preenchido com "agora" — troque se o post foi/vai ser em outro
+                        horário (campanha atrasada ou pré-agendada).
+                    </small>
+
+                </div>
+
                 <button class="btn btn-primary">
                     Gerar Link
                 </button>
