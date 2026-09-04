@@ -103,6 +103,8 @@
 
                 <th>Segmento</th>
 
+                <th>Tamanho do Grupo</th>
+
                 <th class="text-end">Ações</th>
 
             </tr>
@@ -122,6 +124,35 @@
                 <td>{{ contato.cargo }}</td>
 
                 <td>{{ contato.segmento.nome }}</td>
+
+                <td>
+
+                    {% if contato.segmento and contato.segmento.tipo == "grupo" %}
+
+                        <form method="POST" action="/contatos/tamanho/{{ contato.id }}" class="d-flex gap-2">
+
+                            <input
+                                type="number"
+                                min="0"
+                                name="tamanho_grupo"
+                                class="form-control form-control-sm"
+                                style="width: 90px;"
+                                value="{{ contato.tamanho_grupo if contato.tamanho_grupo is not none else '' }}"
+                                placeholder="Ex: 250">
+
+                            <button class="btn btn-outline-primary btn-sm">
+                                Salvar
+                            </button>
+
+                        </form>
+
+                    {% else %}
+
+                        —
+
+                    {% endif %}
+
+                </td>
 
                 <td class="text-end">
 

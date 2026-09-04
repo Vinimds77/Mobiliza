@@ -27,4 +27,9 @@ class Contato(db.Model):
         default=Cliente.padrao_id
     )
 
+    tamanho_grupo = db.Column(
+        db.Integer,
+        nullable=True
+    )
+
     cliente = db.relationship("Cliente")

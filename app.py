@@ -23,7 +23,7 @@ from flask_login import (
     current_user
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import inspect, text, func, event, case
+from sqlalchemy import inspect, text, func, event
 from sqlalchemy.orm import with_loader_criteria
 from sqlalchemy.exc import OperationalError
 
@@ -64,6 +64,12 @@ with app.app_context():
         db.session.execute(text(
             "ALTER TABLE segmentos ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT 'regional'"
         ))
+        db.session.commit()
+
+    colunas_contatos = [c["name"] for c in inspect(db.engine).get_columns("contatos")]
+
+    if "tamanho_grupo" not in colunas_contatos:
+        db.session.execute(text("ALTER TABLE contatos ADD COLUMN tamanho_grupo INTEGER"))
         db.session.commit()
 
     if Usuario.query.count() == 0:
@@ -405,6 +411,21 @@ def excluir_contato(id):
         return redirect("/contatos?erro=vinculado")
 
     db.session.delete(contato)
+    db.session.commit()
+
+    return redirect("/contatos")
+
+
+@app.route("/contatos/tamanho/<int:id>", methods=["POST"])
+@login_required
+def alterar_tamanho_grupo(id):
+
+    contato = Contato.query.get_or_404(id)
+
+    valor = request.form.get("tamanho_grupo", "").strip()
+
+    contato.tamanho_grupo = int(valor) if valor.isdigit() else None
+
     db.session.commit()
 
     return redirect("/contatos")
@@ -901,22 +922,14 @@ def relatorio_segmentos():
 
     inicio_utc, fim_utc = limites_utc_do_periodo(data_inicio, data_fim)
 
-    linhas = (
-        db.session.query(
-            Segmento.id,
-            Segmento.nome,
-            Segmento.tipo,
-            func.count(CampanhaContato.id),
-            func.sum(case((CampanhaContato.clicou.is_(True), 1), else_=0)),
-            func.count(func.distinct(CampanhaContato.campanha_id))
-        )
-        .select_from(Segmento)
-        .join(Contato, Contato.segmento_id == Segmento.id)
-        .join(CampanhaContato, CampanhaContato.contato_id == Contato.id)
+    # Todo envio (CampanhaContato) do período, já com o Contato/Segmento e a
+    # Campanha carregados — base única pra todas as métricas abaixo, pra não
+    # ter duas queries calculando a mesma coisa de jeitos diferentes.
+    relacionamentos = (
+        CampanhaContato.query
+        .join(Contato, Contato.id == CampanhaContato.contato_id)
         .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
         .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
-        .group_by(Segmento.id, Segmento.nome, Segmento.tipo)
-        .order_by(Segmento.nome)
         .all()
     )
 
@@ -928,65 +941,137 @@ def relatorio_segmentos():
         .group_by(Segmento.id).all()
     )
 
+    segmentos_acc = {}
+
+    for r in relacionamentos:
+
+        contato = r.contato
+        segmento = contato.segmento if contato else None
+
+        if segmento is None:
+            continue
+
+        # Alcance estimado deste envio específico: mesma lógica de
+        # relatorio_campanha (IPs distintos e tipos de dispositivo distintos
+        # que clicaram nesse par campanha+contato).
+        cliques = Clique.query.filter_by(
+            campanha_id=r.campanha_id,
+            contato_id=r.contato_id
+        ).all()
+
+        ips = {c.ip for c in cliques if c.ip}
+
+        seg_acc = segmentos_acc.setdefault(segmento.id, {
+            "segmento": segmento.nome,
+            "tipo": segmento.tipo,
+            "envios": 0,
+            "cliques_diretos": 0,
+            "cliques_totais": 0,
+            "alcance_ips": 0,
+            "campanhas": set(),
+            "contatos": {}
+        })
+
+        seg_acc["envios"] += 1
+        seg_acc["cliques_totais"] += r.total_cliques
+        seg_acc["alcance_ips"] += len(ips)
+        seg_acc["campanhas"].add(r.campanha_id)
+
+        if r.clicou:
+            seg_acc["cliques_diretos"] += 1
+
+        cont_acc = seg_acc["contatos"].setdefault(contato.id, {
+            "nome": contato.nome,
+            "tamanho_grupo": contato.tamanho_grupo,
+            "envios": 0,
+            "cliques_diretos": 0,
+            "cliques_totais": 0,
+            "alcance_ips": 0
+        })
+
+        cont_acc["envios"] += 1
+        cont_acc["cliques_totais"] += r.total_cliques
+        cont_acc["alcance_ips"] += len(ips)
+
+        if r.clicou:
+            cont_acc["cliques_diretos"] += 1
+
     regionais = []
     grupos = []
 
-    for seg_id, seg_nome, seg_tipo, envios, cliques_diretos, total_campanhas in linhas:
+    for seg_id, acc in segmentos_acc.items():
 
-        cliques_diretos = cliques_diretos or 0
+        envios = acc["envios"]
 
-        # CTR = cliques / envios (mensagens realmente disparadas no período),
-        # não cliques / contatos únicos do segmento — essas são métricas
-        # diferentes, ver "Contatos no Segmento"/"Grupos com Link Postado" abaixo.
-        ctr = round(cliques_diretos / envios * 100, 1) if envios else 0
+        ctr = round(acc["cliques_diretos"] / envios * 100, 1) if envios else 0
+        cliques_por_envio = round(acc["cliques_totais"] / envios, 2) if envios else 0
 
         linha = {
-            "segmento": seg_nome,
+            "segmento": acc["segmento"],
             "envios": envios,
             "contatos_segmento": contagem_segmento.get(seg_id, 0),
-            "cliques_diretos": cliques_diretos,
+            "cliques_diretos": acc["cliques_diretos"],
+            "cliques_totais": acc["cliques_totais"],
             "ctr": ctr,
-            "total_campanhas": total_campanhas
+            "cliques_por_envio": cliques_por_envio,
+            "alcance_ips": acc["alcance_ips"],
+            "total_campanhas": len(acc["campanhas"])
         }
 
-        if seg_tipo == "grupo":
+        if acc["tipo"] == "grupo":
 
-            # Desempenho de cada grupo (=Contato) individualmente dentro
-            # deste segmento, no mesmo período — a linha acima é só a soma.
-            detalhes_grupos = (
-                db.session.query(
-                    Contato.nome,
-                    func.count(CampanhaContato.id),
-                    func.sum(case((CampanhaContato.clicou.is_(True), 1), else_=0))
-                )
-                .select_from(Contato)
-                .join(CampanhaContato, CampanhaContato.contato_id == Contato.id)
-                .join(Campanha, Campanha.id == CampanhaContato.campanha_id)
-                .filter(Contato.segmento_id == seg_id)
-                .filter(Campanha.criado_em >= inicio_utc, Campanha.criado_em <= fim_utc)
-                .group_by(Contato.id, Contato.nome)
-                .order_by(Contato.nome)
-                .all()
-            )
+            detalhes = []
+            grupos_ativados = 0
+            soma_tamanho_conhecido = 0
+            soma_alcance_com_tamanho = 0
+            algum_sem_tamanho = False
 
-            linha["detalhes"] = []
+            for cont_acc in acc["contatos"].values():
 
-            for nome_grupo, envios_grupo, cliques_grupo in detalhes_grupos:
+                if cont_acc["cliques_totais"] > 0:
+                    grupos_ativados += 1
 
-                cliques_grupo = cliques_grupo or 0
+                tamanho = cont_acc["tamanho_grupo"]
 
-                ctr_grupo = round(cliques_grupo / envios_grupo * 100, 1) if envios_grupo else 0
+                if tamanho:
+                    taxa_alcance = round(cont_acc["alcance_ips"] / tamanho * 100, 1)
+                    soma_tamanho_conhecido += tamanho
+                    soma_alcance_com_tamanho += cont_acc["alcance_ips"]
+                else:
+                    taxa_alcance = None
+                    algum_sem_tamanho = True
 
-                linha["detalhes"].append({
-                    "nome": nome_grupo,
-                    "envios": envios_grupo,
-                    "cliques_diretos": cliques_grupo,
-                    "ctr": ctr_grupo
+                detalhes.append({
+                    "nome": cont_acc["nome"],
+                    "envios": cont_acc["envios"],
+                    "cliques_totais": cont_acc["cliques_totais"],
+                    "cliques_por_envio": (
+                        round(cont_acc["cliques_totais"] / cont_acc["envios"], 2)
+                        if cont_acc["envios"] else 0
+                    ),
+                    "alcance_ips": cont_acc["alcance_ips"],
+                    "tamanho_grupo": tamanho,
+                    "taxa_alcance": taxa_alcance
                 })
 
+            detalhes.sort(key=lambda d: d["alcance_ips"], reverse=True)
+
+            linha["detalhes"] = detalhes
+            linha["grupos_ativados"] = grupos_ativados
+            linha["total_grupos"] = contagem_segmento.get(seg_id, 0)
+            linha["taxa_alcance_agregada"] = (
+                round(soma_alcance_com_tamanho / soma_tamanho_conhecido * 100, 1)
+                if soma_tamanho_conhecido else None
+            )
+            linha["algum_sem_tamanho"] = algum_sem_tamanho
+
             grupos.append(linha)
+
         else:
             regionais.append(linha)
+
+    regionais.sort(key=lambda l: l["segmento"])
+    grupos.sort(key=lambda l: l["segmento"])
 
     return render_template(
         "relatorio_segmentos.html",
